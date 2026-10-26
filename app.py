@@ -1,0 +1,504 @@
+"""CareerCollective — bilingual student career discovery, matching & tracking.
+Run: streamlit run app.py
+No authentication; all personal input remains in browser session and in local
+Streamlit server memory for that session (not persistent across reloads).
+"""
+from __future__ import annotations
+
+import html
+import io
+import json
+import os
+from datetime import date, datetime
+from pathlib import Path
+
+import pandas as pd
+import streamlit as st
+
+from core import (
+    JOB_COLUMNS, TRACKER_COLUMNS, STATUSES, candidate_text, clean_text,
+    days_until_deadline, deduplicate_jobs, export_tracker_xlsx, extract_cv,
+    filter_jobs, import_tracker, make_tracker_row, normalize_date,
+    normalize_job, rank_jobs, safe_url,
+)
+from sources import fetch_greenhouse, fetch_lever, monitored_status
+
+ROOT = Path(__file__).parent
+st.set_page_config(page_title="CareerCollective | Find your next step", page_icon="🧭", layout="wide", initial_sidebar_state="expanded")
+
+CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+:root {--forest:#103f42; --sage:#dcefe6; --cream:#f8f7f2; --coral:#e8936d;}
+html,body,[class*="css"],.stApp {font-family:'DM Sans',sans-serif;}
+.stApp {background:#fafaf7;color:#24383b;}
+h1,h2,h3 {font-family:'Outfit',sans-serif;letter-spacing:-.025em;}
+.block-container {max-width:1330px;padding-top:1.9rem;padding-bottom:4rem;}
+[data-testid="stSidebar"] {background:#f2f5f0;border-right:1px solid #e1eae2;}
+[data-testid="stSidebar"] .stRadio label {font-weight:500;}
+.hero {background:linear-gradient(115deg,#113d43 0%,#285c59 72%,#568a76 100%);border-radius:24px;padding:32px 38px 30px;margin-bottom:23px;color:#fff;position:relative;overflow:hidden;}
+.hero:after {content:'';position:absolute;right:-45px;top:-85px;width:330px;height:330px;border:1px solid #ffffff50;border-radius:50%;box-shadow:0 0 0 50px #ffffff08,0 0 0 105px #ffffff08;pointer-events:none;}
+.hero h1{color:#fff!important;font-size:2.45rem;line-height:1.1;margin:0 0 12px;max-width:750px;}
+.hero p{color:#ebf7f2;margin:0;max-width:720px;font-size:1rem;}
+.eyebrow{font-size:.71rem!important;text-transform:uppercase;letter-spacing:.17em;font-weight:800;color:#c1e9d9!important;margin-bottom:10px!important;}
+.tiny-pill{display:inline-block;border-radius:99px;padding:5px 11px;background:#e8f2ec;color:#255949;font-size:.73rem;font-weight:700;margin-right:5px;}
+.disclaimer{border:1px solid #dce6dd;background:#f5f8f3;border-radius:11px;padding:11px 15px;color:#526563;font-size:.83rem;margin-top:12px;}
+.header-line {font-size:1.8rem;font-weight:750;color:#183b3e;margin-bottom:.1rem;}
+.note-small {font-size:.83rem;color:#72827d;}
+[data-testid="stMetric"] {background:#fff;border:1px solid #e8eae4;border-radius:15px;padding:15px 18px;}
+[data-testid="stVerticalBlockBorderWrapper"] {border-color:#e4e9e5!important;border-radius:17px!important;}
+div.stButton>button[kind="primary"] {background:#145b56;border:1px solid #145b56;border-radius:11px;color:white;font-weight:700;}
+div.stButton>button[kind="primary"]:hover {background:#103f42;border-color:#103f42;}
+div.stButton>button {border-radius:10px;}
+[data-testid="stLinkButton"] a {border-radius:10px;}
+hr{border-top:1px solid #e6ebe5!important;}
+</style>
+"""
+st.markdown(CSS, unsafe_allow_html=True)
+
+TEXT = {
+    "en": {
+        "discover": "Discover", "tracker": "My applications", "community": "Community", "profile": "My profile", "about": "About & sources",
+        "subtitle": "AI-guided internships, apprenticeships and a community to move forward together.",
+        "welcome": "Your next opportunity starts here.", "mission": "Discover relevant internships and apprenticeships, organize every application, and learn from other students — all in one place.",
+        "demo": "Demonstration mode", "info": "No sign-in or persistent accounts. Your CV, applications and posts stay in this active session; export anything you want to keep. Demo listings are fictional and are not open vacancies.",
+        "total": "Opportunities", "tracked": "Applications tracked", "soon": "Deadlines within 7 days", "posts": "Community discussions",
+        "matches": "Find your matches", "find_desc": "Smart matching considers your goals, transferable skills and career interests — not just job-title keywords.",
+        "query": "Search jobs, companies or skills", "sector": "Industry", "contract": "Contract type", "source": "Source", "france": "Prioritize France / exclude obvious non-French cities", "all": "All",
+        "rank": "Match score", "save": "Save opportunity", "saved": "Saved", "apply": "Open original job listing", "reason": "Why this match?", "overlap": "Related strengths", "gaps": "Skills mentioned in the role to explore", "none": "No specific vocabulary overlap found — review the description manually.",
+        "deadline": "Application deadline", "not_given": "Not published", "match_notice": "Match scores are relative recommendations, NOT hiring probabilities. Contract and location information may require verification.",
+        "live_header": "Import current vacancies", "live_help": "These APIs read publicly published jobs from one participating employer at a time. Enter its board identifier (not its URL).",
+        "load": "Import public job listings", "live_success": "Imported", "live_error": "Could not import this board", "notice_live": "Refreshes are on demand; these sources do not provide universal job search or confirmed closing dates.",
+        "manual": "Add a job manually", "company": "Company", "title": "Role title", "city": "City / location", "description": "Description", "skills": "Skills (comma-separated)", "job_url": "Original job URL (optional)", "submit_job": "Add opportunity", "manual_added": "Opportunity added to the catalogue.",
+        "tracker_header": "Your application pipeline", "tracker_desc": "Update your progress and notes in the table. Download your tracker before leaving or refreshing the page.",
+        "empty_tracker": "No applications yet. Save a job from Discover or import an existing tracker below.",
+        "export": "Download Excel tracker", "export_csv": "Download CSV tracker", "import": "Import an existing Excel / CSV tracker", "import_button": "Import tracker", "import_success": "Applications imported", "import_error": "Could not import tracker", "snapshot": "Download session backup (JSON)", "restore": "Restore session backup", "restore_button": "Restore backup",
+        "status": "Status", "notes": "Notes", "upcoming": "Upcoming deadlines", "delayed": "Deadline passed", "unlisted": "No published deadline", "delete": "Remove", "monitor": "Availability check", "monitor_description": "After refreshing its employer feed, a tracked listing can be checked against the latest public results. Missing does not prove closure.",
+        "community_header": "A career journey is better together.", "community_desc": "Ask questions, exchange interview experiences, or find fellow applicants. This is a DEMO discussion board; only participants in this browser session see your messages.",
+        "new_post": "Start a discussion", "alias": "Display name (avoid personal details)", "topic": "Discussion title", "category": "Category", "post": "Post discussion", "posted": "Your demo post is visible in this session.", "comment": "Leave a reply", "send_reply": "Post reply", "all_discussions": "Community feed", "community_note": "Illustrative posts are fictional. No cross-user messaging, accounts or moderation is provided in this prototype.", "group_link": "Optional external student-group link", "group_link_help": "Organizers may add a verified Discord/WhatsApp invitation. Never upload CVs or personal details into an untrusted group.",
+        "profile_header": "Make the recommendations yours.", "profile_desc": "Tell CareerCollective what you want to do next. You can type details or upload a machine-readable CV.",
+        "goal": "Career goal / roles sought", "location": "Preferred location", "interest": "Preferred industries", "profile_skills": "Skills and experiences", "contracts": "Looking for", "resume": "Upload your CV (PDF, DOCX, TXT)", "resume_ok": "CV text extracted", "resume_err": "Unable to read this file", "cv_warning": "Scanned or image-only PDFs cannot be read here. Enter your background manually instead.", "save_profile": "Save profile", "profile_saved": "Profile updated. Recommendations will use these preferences.", "engine": "AI matching engine", "engine_fast": "Fast text-similarity baseline", "engine_ai": "Multilingual pretrained transformer (AI)", "model_error": "The pretrained model was unavailable. Showing the reproducible text-matching baseline instead.", "current_engine": "Current engine", "recalculate": "Recommendations refresh when your profile or filters change.",
+        "about_header": "How CareerCollective works", "about_desc": "Educational prototype built for a student AI project. Its capabilities and limitations are clearly labeled.",
+        "step1": "1. Describe your experience and career goals or upload a CV.", "step2": "2. Explore illustrative roles, manually added listings, and supported public employer feeds.", "step3": "3. Compare explainable recommendations, save roles and track the process.", "step4": "4. Exchange ideas in the demonstrative Community area and export your records.",
+        "data_note": "Example data are fictional and intended only for testing. Live listings originate directly from selected employers' publicly available feeds; their availability can change. No automated applications are submitted.",
+        "download_data": "Download demonstration dataset", "download_prompts": "Sources, technical citations and example prompts are included in the project ZIP.",
+        "filter_none": "No results match the current filters. Try broader terms, or add a job manually.",
+    },
+    "fr": {
+        "discover": "Découvrir", "tracker": "Mes candidatures", "community": "Communauté", "profile": "Mon profil", "about": "À propos & sources",
+        "subtitle": "Stages, alternances et entraide étudiante, guidés par l'IA.",
+        "welcome": "Votre prochaine opportunité commence ici.", "mission": "Trouvez des stages et alternances adaptés, suivez vos candidatures et échangez avec d'autres étudiants — au même endroit.",
+        "demo": "Mode démonstration", "info": "Sans compte ni sauvegarde permanente. Votre CV, vos candidatures et messages restent dans cette session ; exportez vos données avant de quitter. Les annonces de démonstration sont fictives.",
+        "total": "Opportunités", "tracked": "Candidatures suivies", "soon": "Échéances sous 7 jours", "posts": "Discussions",
+        "matches": "Trouver des opportunités", "find_desc": "La recommandation examine vos objectifs, compétences transférables et centres d'intérêt, au-delà des seuls mots-clés.",
+        "query": "Rechercher poste, entreprise ou compétences", "sector": "Secteur", "contract": "Type de contrat", "source": "Source", "france": "Priorité France / exclure les villes étrangères évidentes", "all": "Tous",
+        "rank": "Score de correspondance", "save": "Enregistrer l'offre", "saved": "Enregistrée", "apply": "Voir l'annonce originale", "reason": "Pourquoi cette recommandation ?", "overlap": "Compétences proches", "gaps": "Compétences à développer", "none": "Pas de mots-clés spécifiques communs. Consultez la description.",
+        "deadline": "Date limite", "not_given": "Non indiquée", "match_notice": "Les scores expriment une similarité indicative, PAS une probabilité de recrutement. Vérifiez le contrat et la localisation.",
+        "live_header": "Importer des offres actuelles", "live_help": "Ces API donnent accès aux offres publiques d'une entreprise à la fois. Saisissez son identifiant de job board (pas l'URL).",
+        "load": "Importer les offres publiques", "live_success": "Offres importées", "live_error": "Import impossible", "notice_live": "Actualisation manuelle ; ces sources ne permettent pas une recherche universelle ni la vérification définitive des dates de clôture.",
+        "manual": "Ajouter une offre manuellement", "company": "Entreprise", "title": "Intitulé du poste", "city": "Ville / lieu", "description": "Description", "skills": "Compétences (séparées par des virgules)", "job_url": "Lien original (facultatif)", "submit_job": "Ajouter l'offre", "manual_added": "Offre ajoutée au catalogue.",
+        "tracker_header": "Suivi des candidatures", "tracker_desc": "Modifiez les statuts et les notes dans le tableau. Téléchargez votre suivi avant de fermer ou d'actualiser la page.",
+        "empty_tracker": "Aucune candidature pour l'instant. Enregistrez une offre ou importez votre fichier de suivi.",
+        "export": "Télécharger le suivi Excel", "export_csv": "Télécharger le suivi CSV", "import": "Importer un suivi Excel / CSV", "import_button": "Importer", "import_success": "Candidatures importées", "import_error": "Import impossible", "snapshot": "Télécharger une sauvegarde (JSON)", "restore": "Restaurer une sauvegarde", "restore_button": "Restaurer",
+        "status": "Statut", "notes": "Notes", "upcoming": "Échéances à venir", "delayed": "Date limite dépassée", "unlisted": "Date limite non indiquée", "delete": "Supprimer", "monitor": "Vérifier la disponibilité", "monitor_description": "Après avoir actualisé les annonces d'une entreprise, une offre peut être recherchée dans le dernier flux. L'absence ne prouve pas la clôture.",
+        "community_header": "Avançons ensemble.", "community_desc": "Posez vos questions, partagez vos entretiens et rencontrez d'autres candidats. Ce forum est une DÉMONSTRATION : vos messages restent limités à cette session.",
+        "new_post": "Créer une discussion", "alias": "Pseudo (évitez les données personnelles)", "topic": "Sujet", "category": "Catégorie", "post": "Publier", "posted": "Votre message de démonstration est visible dans cette session.", "comment": "Répondre", "send_reply": "Envoyer la réponse", "all_discussions": "Fil communautaire", "community_note": "Les messages exemples sont fictifs. Pas de messagerie entre utilisateurs, de comptes ou de modération pour ce prototype.", "group_link": "Lien facultatif vers un groupe étudiant", "group_link_help": "Les organisateurs peuvent fournir un lien Discord/WhatsApp vérifié. Ne partagez pas de CV ni de données personnelles dans un groupe non fiable.",
+        "profile_header": "Des recommandations qui vous ressemblent.", "profile_desc": "Indiquez vos objectifs. Vous pouvez saisir votre parcours ou importer un CV contenant du texte sélectionnable.",
+        "goal": "Objectif / postes recherchés", "location": "Lieu privilégié", "interest": "Secteurs recherchés", "profile_skills": "Compétences et expériences", "contracts": "Je recherche", "resume": "Importer un CV (PDF, DOCX, TXT)", "resume_ok": "Texte du CV extrait", "resume_err": "Lecture du fichier impossible", "cv_warning": "Les PDF scannés ne peuvent pas être lus ici. Indiquez manuellement votre parcours.", "save_profile": "Enregistrer le profil", "profile_saved": "Profil mis à jour. Les recommandations tiennent compte de vos critères.", "engine": "Moteur de recommandation", "engine_fast": "Référence rapide par similarité textuelle", "engine_ai": "Transformeur multilingue pré-entraîné (IA)", "model_error": "Modèle IA indisponible. Utilisation de la comparaison textuelle reproductible.", "current_engine": "Moteur actif", "recalculate": "Les résultats évoluent avec les informations de votre profil et les filtres.",
+        "about_header": "Comment fonctionne CareerCollective", "about_desc": "Prototype pédagogique pour un projet d'IA, avec limites explicites.",
+        "step1": "1. Présentez votre parcours et vos objectifs, ou importez un CV.", "step2": "2. Parcourez des offres fictives, des offres saisies et des annonces publiques d'entreprises sélectionnées.", "step3": "3. Consultez les recommandations expliquées et suivez vos candidatures.", "step4": "4. Échangez dans la communauté de démonstration et exportez vos données.",
+        "data_note": "Le jeu de données fourni est fictif et destiné au test. Les offres en direct proviennent des flux publics des entreprises choisies et peuvent évoluer. Aucune candidature n'est envoyée automatiquement.",
+        "download_data": "Télécharger les données de démonstration", "download_prompts": "Sources, références techniques et exemples de prompts figurent dans l'archive du projet.",
+        "filter_none": "Aucun résultat. Élargissez les filtres ou ajoutez une offre manuellement.",
+    }
+}
+
+if "language" not in st.session_state:
+    st.session_state.language = "en"
+if "profile_data" not in st.session_state:
+    st.session_state.profile_data = {
+        "goal": "Internship or apprenticeship in project management, event coordination, marketing or operations",
+        "skills": "Project management, event coordination, customer service, Excel, communication, market research",
+        "location": "Paris", "sectors": "Events, Marketing, Hospitality", "cv_text": "",
+        "contracts": ["Internship", "Apprenticeship"],
+    }
+if "manual_jobs" not in st.session_state: st.session_state.manual_jobs = []
+if "live_jobs" not in st.session_state: st.session_state.live_jobs = []
+if "tracker_rows" not in st.session_state: st.session_state.tracker_rows = {}
+if "discussions" not in st.session_state:
+    st.session_state.discussions = pd.read_csv(ROOT / "data/sample_discussions.csv").fillna("").to_dict("records")
+    # Visible fictional replies make the community interaction understandable, not live.
+    demo_replies = {
+        "1": [("Léo (DEMO)", "We practiced two cases every week and compared approaches afterward.")],
+        "2": [("Émilie (DEMO)", "A small SQL/Python project with a clear README is a useful starting point.")],
+        "3": [("Maya (DEMO)", "I am exploring event coordination as well. Mock interviews could help.")],
+        "4": [("Sarah (DEMO)", "Preparing one STAR example about a difficult guest helped me a lot.")],
+        "5": [("Thomas (DEMO)", "I put the school/company rhythm in one sentence at the end of my introduction.")],
+        "6": [],
+    }
+    for d in st.session_state.discussions:
+        d["user_replies"] = [{"author": a, "text": t} for a,t in demo_replies.get(str(d["id"]), [])]
+        d["replies"] = 0
+if "live_board_checks" not in st.session_state: st.session_state.live_board_checks = {}
+if "community_link" not in st.session_state: st.session_state.community_link = ""
+
+language = st.session_state.language
+
+def tr(key):
+    return TEXT[language].get(key, TEXT["en"].get(key, key))
+
+
+def render_headline(eyebrow, title, subtitle):
+    st.markdown(f"<div class='hero'><p class='eyebrow'>{html.escape(eyebrow)}</p><h1>{html.escape(title)}</h1><p>{html.escape(subtitle)}</p></div>", unsafe_allow_html=True)
+
+
+def show_demo_warning():
+    st.markdown(f"<div class='disclaimer'><b>{html.escape(tr('demo'))}</b> · {html.escape(tr('info'))}</div>", unsafe_allow_html=True)
+
+
+@st.cache_data(show_spinner=False)
+def sample_jobs():
+    df = pd.read_csv(ROOT / "data/sample_jobs.csv", dtype=str).fillna("")
+    return [normalize_job(row) for row in df.to_dict("records")]
+
+
+@st.cache_resource(show_spinner=False)
+def load_model():
+    from sentence_transformers import SentenceTransformer
+    return SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+
+
+def all_jobs():
+    return deduplicate_jobs(sample_jobs() + st.session_state.manual_jobs + st.session_state.live_jobs)
+
+
+def save_job(job):
+    st.session_state.tracker_rows[job["id"]] = make_tracker_row(job)
+
+
+with st.sidebar:
+    st.markdown("## 🧭 CareerCollective")
+    st.caption(tr("subtitle"))
+    chosen = st.segmented_control("Language / Langue", ["English", "Français"], default="Français" if language == "fr" else "English")
+    new_lang = "fr" if chosen == "Français" else "en"
+    if new_lang != st.session_state.language:
+        st.session_state.language = new_lang
+        st.rerun()
+    st.divider()
+    pages = [("🔎", "discover"), ("📌", "tracker"), ("💬", "community"), ("👤", "profile"), ("ℹ️", "about")]
+    chosen_page = st.radio("Navigation", [key for _, key in pages], format_func=lambda x: next(icon for icon, name in pages if x == name) + "  " + tr(x), label_visibility="collapsed")
+    st.divider()
+    engine_label = st.selectbox(tr("engine"), ["semantic", "baseline"], format_func=lambda x: tr("engine_ai") if x == "semantic" else tr("engine_fast"), index=0)
+    st.caption("Multilingual sentence embeddings · Hugging Face" if engine_label == "semantic" else "Character n-gram TF-IDF · scikit-learn")
+    st.divider()
+    st.caption("ESSEC student project · 2026  |  v1.0")
+    st.caption("No account · Session-only · Educational demo")
+
+model = None
+using_semantic = engine_label == "semantic"
+if chosen_page == "discover" and using_semantic:
+    try:
+        with st.spinner("Loading multilingual AI model / Chargement du modèle IA…"):
+            model = load_model()
+    except Exception as exc:
+        using_semantic = False
+        st.warning(tr("model_error") + f" ({type(exc).__name__})")
+
+jobs = all_jobs()
+tracked = list(st.session_state.tracker_rows.values())
+near = sum(days_until_deadline(j) is not None and 0 <= days_until_deadline(j) <= 7 for j in tracked)
+
+if chosen_page == "discover":
+    render_headline("Career discovery, reimagined" if language == "en" else "Découvrez votre avenir", tr("welcome"), tr("mission"))
+    stats = st.columns(4)
+    for col, value, label in zip(stats, [len(jobs), len(tracked), near, len(st.session_state.discussions)], [tr("total"), tr("tracked"), tr("soon"), tr("posts")]):
+        col.metric(label, value)
+    show_demo_warning()
+    st.write("")
+    st.subheader(tr("matches"))
+    st.caption(tr("find_desc"))
+    query = st.text_input(tr("query"), placeholder="e.g. marketing, data, événementiel")
+    fc1, fc2, fc3 = st.columns(3)
+    sector_options = ["All"] + sorted(set(j["sector"] for j in jobs if j["sector"]))
+    sectors = fc1.selectbox(tr("sector"), sector_options, format_func=lambda x: tr("all") if x == "All" else x)
+    contracts = fc2.selectbox(tr("contract"), ["All", "Internship", "Apprenticeship", "Other / unknown"], format_func=lambda x: {"All": tr("all"), "Internship": "Stage / Internship", "Apprenticeship": "Alternance / Apprenticeship", "Other / unknown": "Other / À confirmer"}.get(x, x))
+    sources = fc3.selectbox(tr("source"), ["All"] + sorted(set(j["source_type"] for j in jobs)), format_func=lambda x: tr("all") if x == "All" else x)
+    france_filter = st.checkbox(tr("france"), value=True)
+    st.write("")
+    with st.expander("🌍 " + tr("live_header"), expanded=False):
+        st.caption(tr("live_help"))
+        provider = st.selectbox("Source API", ["Greenhouse", "Lever (global)", "Lever (EU)"])
+        slug = st.text_input("Employer board identifier / Identifiant", placeholder="e.g. greenhouse board token or Lever site")
+        only_student_roles = st.checkbox("Only student-oriented roles / Stages et alternances uniquement", value=True)
+        if st.button("↻ " + tr("load"), disabled=not slug.strip()):
+            try:
+                with st.spinner("Fetching published postings…"):
+                    if provider == "Greenhouse": new = fetch_greenhouse(slug.strip())
+                    else: new = fetch_lever(slug.strip(), "eu" if provider.endswith("EU)") else "global")
+                if only_student_roles: new = [j for j in new if j["contract"] in ("Internship", "Apprenticeship")]
+                src_key = f"{provider}:{slug.strip()}"
+                # Replace only the board's previously imported listings.
+                old_ids = set(st.session_state.live_board_checks.get(src_key, {}).get("job_ids", []))
+                st.session_state.live_jobs = [j for j in st.session_state.live_jobs if j["id"] not in old_ids] + new
+                st.session_state.live_board_checks[src_key] = {"job_ids": [j["id"] for j in new], "date": date.today().isoformat(), "checked_jobs": new}
+                st.toast(f"{tr('live_success')}: {len(new)}")
+                st.rerun()
+            except Exception as exc:
+                st.error(f"{tr('live_error')}: {exc}")
+    with st.expander("✍️ " + tr("manual"), expanded=False):
+        with st.form("manual_role"):
+            a,b = st.columns(2)
+            company = a.text_input(tr("company"))
+            job_title = b.text_input(tr("title"))
+            city = a.text_input(tr("city"), value="Paris")
+            contract = b.selectbox(tr("contract"), ["Internship", "Apprenticeship", "Other / unknown"])
+            sector = a.text_input(tr("sector"), value="Other")
+            job_url = b.text_input(tr("job_url"))
+            desc = st.text_area(tr("description"), height=100)
+            skills = st.text_input(tr("skills"))
+            has_deadline = st.checkbox("Deadline published / Date limite publiée")
+            deadline = st.date_input(tr("deadline"), value=date.today()) if has_deadline else None
+            submitted = st.form_submit_button(tr("submit_job"), type="primary")
+        if submitted:
+            if not company.strip() or not job_title.strip(): st.error("Company and role title are required / Entreprise et poste obligatoires")
+            elif job_url and not safe_url(job_url): st.error("Only valid http(s) URLs are accepted")
+            else:
+                item = normalize_job({"id": "manual:" + str(pd.Timestamp.now().value), "company": company,
+                    "title": job_title, "city": city, "contract": contract, "sector": sector,
+                    "description": desc, "skills": skills, "url": job_url,
+                    "deadline": deadline.isoformat() if deadline else "", "source": "Manually entered",
+                    "source_type": "Manual", "first_seen": date.today().isoformat()})
+                st.session_state.manual_jobs.append(item)
+                st.success(tr("manual_added"))
+                st.rerun()
+
+    listing = filter_jobs(jobs, query, sectors, contracts, sources, france_filter)
+    ranked, actual_engine = rank_jobs(listing, st.session_state.profile_data, using_semantic, model)
+    st.caption(f"{tr('current_engine')}: {'Multilingual pretrained transformer / Transformeur multilingue' if actual_engine == 'multilingual-transformer' else 'TF-IDF baseline / Référence TF-IDF'} · {len(ranked)} results")
+    st.info(tr("match_notice"), icon="ℹ️")
+    if not ranked:
+        st.warning(tr("filter_none"))
+    result_limit = st.select_slider("Visible recommendations / Recommandations affichées", options=[5, 8, 12, 20, 30], value=8)
+    for job in ranked[:result_limit]:
+        with st.container(border=True):
+            c1,c2 = st.columns([4,1.2])
+            with c1:
+                st.markdown(f"### {html.escape(job['title'])}")
+                st.markdown(f"**{html.escape(job['company'])}**  ·  📍 {html.escape(job['city'] or 'Location not specified')}")
+                st.caption(f"{job['contract']}  ·  {job['sector']}  ·  {job['source']}")
+            with c2:
+                st.metric(tr("rank"), f"{job['score']} / 100")
+                if job["source_type"] == "Demo data": st.caption("🧪 FICTIONAL / FICTIF")
+                elif job["source_type"] == "Live feed": st.caption("🟢 Public feed / Flux public")
+                else: st.caption("✍️ Manual / Manuel")
+            st.write((job["description"][:330] + "…") if len(job["description"])>330 else job["description"])
+            if job["deadline"]:
+                remaining = days_until_deadline(job)
+                deadline_text = job["deadline"]
+                if remaining is not None and remaining < 0: deadline_text += f" · {tr('delayed')}"
+                elif remaining is not None and remaining <= 7: deadline_text += f" · {remaining} days / jours"
+            else:
+                deadline_text = tr("not_given")
+            st.caption(f"📆 {tr('deadline')}: {deadline_text}")
+            with st.expander(tr("reason")):
+                st.write(f"**{tr('overlap')}:** " + (", ".join(job["shared_skills"]) if job["shared_skills"] else tr("none")))
+                st.write(f"**{tr('gaps')}:** " + (", ".join(job["missing_skills"]) if job["missing_skills"] else "—"))
+                st.caption("Similarity + transparent skill overlap; this is not a predictor of hiring decisions.")
+            b1,b2,b3 = st.columns([1.6,1.6,3])
+            with b1:
+                if job["id"] in st.session_state.tracker_rows:
+                    st.button("✓ " + tr("saved"), key="already-"+job["id"], disabled=True)
+                elif st.button("＋ " + tr("save"), key="save-"+job["id"], type="primary"):
+                    save_job(job); st.rerun()
+            with b2:
+                if job["url"]:
+                    st.link_button("↗ " + tr("apply"), job["url"])
+
+elif chosen_page == "tracker":
+    render_headline("Your application workspace" if language == "en" else "Votre espace candidatures", tr("tracker_header"), tr("tracker_desc"))
+    show_demo_warning()
+    if not tracked: st.info(tr("empty_tracker"))
+    else:
+        st.caption("Edit status, deadline, application date or notes directly in the table. Other columns are locked. / Modifiez directement le statut, les dates et les notes.")
+        df = pd.DataFrame(tracked, columns=TRACKER_COLUMNS).fillna("")
+        edited = st.data_editor(df, hide_index=True, use_container_width=True, num_rows="fixed",
+            disabled=["job_id", "company", "title", "city", "contract", "url", "source"],
+            column_config={
+                "status": st.column_config.SelectboxColumn(tr("status"), options=STATUSES, required=True),
+                "url": st.column_config.LinkColumn("URL"),
+                "notes": st.column_config.TextColumn(tr("notes"), max_chars=2000),
+                "deadline": st.column_config.TextColumn(tr("deadline"), help="YYYY-MM-DD"),
+            }, key="tracker_editor")
+        rows_now = []
+        for row in edited.fillna("").to_dict("records"):
+            row["deadline"] = normalize_date(row["deadline"])
+            row["applied_on"] = normalize_date(row["applied_on"])
+            rows_now.append(row)
+        st.session_state.tracker_rows = {r["job_id"]: r for r in rows_now}
+        tracked = rows_now
+        dl1,dl2,dl3 = st.columns([1.2,1.2,2])
+        dl1.download_button(tr("export"), export_tracker_xlsx(tracked), "CareerCollective_applications.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
+        dl2.download_button(tr("export_csv"), pd.DataFrame(tracked, columns=TRACKER_COLUMNS).to_csv(index=False).encode("utf-8-sig"), "CareerCollective_applications.csv", mime="text/csv")
+        if tracked:
+            remove_id = dl3.selectbox(tr("delete"), ["—"] + [r["job_id"] for r in tracked], format_func=lambda v: v if v == "—" else next((f"{r['company']} | {r['title']}" for r in tracked if r['job_id'] == v), v))
+            if remove_id != "—" and dl3.button("✕ " + tr("delete"), key="remove_saved"):
+                st.session_state.tracker_rows.pop(remove_id, None); st.rerun()
+        st.subheader(tr("upcoming"))
+        future = [(days_until_deadline(row),row) for row in tracked]
+        future = sorted([(d,j) for d,j in future if d is not None and d>=0 and j["status"] not in ("Rejected", "Withdrawn")], key=lambda x:x[0])
+        if future:
+            for days,job in future[:8]:
+                st.markdown(f"**{html.escape(job['company'])} · {html.escape(job['title'])}** — {job['deadline']} · {days} days / jours")
+        else: st.caption(tr("unlisted"))
+        with st.expander("🔎 " + tr("monitor")):
+            st.caption(tr("monitor_description"))
+            for r in tracked:
+                if "Greenhouse ·" in r["source"] or "Lever ·" in r["source"]:
+                    board_name = r["source"].split(" · ",1)[-1]
+                    board_matches = [v for k,v in st.session_state.live_board_checks.items() if k.endswith(":"+board_name)]
+                    if board_matches:
+                        latest = board_matches[-1]
+                        status = monitored_status(r, latest["checked_jobs"], True)
+                    else: status = monitored_status(r, [], False)
+                    st.write(f"{r['company']} · {r['title']}: **{status}**")
+    st.divider()
+    st.subheader(tr("import"))
+    uploaded = st.file_uploader("Excel / CSV", type=["xlsx", "csv"], key="tracker_import")
+    if st.button(tr("import_button"), disabled=uploaded is None):
+        try:
+            items = import_tracker(uploaded.getvalue(), uploaded.name)
+            for r in items: st.session_state.tracker_rows[r["job_id"]] = r
+            st.success(f"{tr('import_success')}: {len(items)}")
+            st.rerun()
+        except Exception as exc: st.error(f"{tr('import_error')}: {exc}")
+    st.divider()
+    backup = {
+        "version": 1, "profile": st.session_state.profile_data,
+        "tracker": list(st.session_state.tracker_rows.values()),
+        "manual_jobs": st.session_state.manual_jobs,
+        "community_posts": [p for p in st.session_state.discussions if str(p.get("id","")).startswith("user-")],
+    }
+    st.download_button(tr("snapshot"), json.dumps(backup, ensure_ascii=False, indent=2).encode("utf-8"), "CareerCollective_session.json", mime="application/json")
+    with st.expander(tr("restore")):
+        backup_file = st.file_uploader("JSON", type="json")
+        if st.button(tr("restore_button"), disabled=backup_file is None):
+            try:
+                if backup_file.size > 3_000_000: raise ValueError("Backup is too large")
+                loaded = json.loads(backup_file.getvalue().decode("utf-8"))
+                if loaded.get("version") != 1 or not isinstance(loaded.get("tracker"), list): raise ValueError("Not a valid CareerCollective backup")
+                st.session_state.profile_data = loaded.get("profile", st.session_state.profile_data)
+                st.session_state.manual_jobs = [normalize_job(x) for x in loaded.get("manual_jobs", [])[:300] if isinstance(x,dict)]
+                safe_rows = {}
+                for r in loaded["tracker"][:500]:
+                    if isinstance(r,dict) and r.get("job_id"):
+                        row = {key: clean_text(r.get(key,""), 2000) for key in TRACKER_COLUMNS}
+                        row["status"] = row["status"] if row["status"] in STATUSES else "Saved"
+                        row["url"] = safe_url(row["url"])
+                        row["deadline"] = normalize_date(row["deadline"])
+                        row["applied_on"] = normalize_date(row["applied_on"])
+                        safe_rows[str(r["job_id"])] = row
+                st.session_state.tracker_rows = safe_rows
+                for p in loaded.get("community_posts", [])[:100]:
+                    if isinstance(p,dict) and str(p.get("id", "")).startswith("user-"):
+                        st.session_state.discussions.append({key: clean_text(p.get(key, ""), 2000) for key in ("id", "author", "category", "sector", "title", "body", "posted")} | {"replies":0,"user_replies":[]})
+                st.success("Session restored / Session restaurée")
+                st.rerun()
+            except Exception as exc: st.error(f"Backup error: {exc}")
+
+elif chosen_page == "community":
+    render_headline("CareerCollective Community", tr("community_header"), tr("community_desc"))
+    st.markdown("<span class='tiny-pill'>Ask / Questions</span><span class='tiny-pill'>Interviews / Entretiens</span><span class='tiny-pill'>Find your peers / Réseau</span>", unsafe_allow_html=True)
+    st.info(tr("community_note"), icon="ℹ️")
+    with st.expander("＋ " + tr("new_post")):
+        with st.form("post_form", clear_on_submit=True):
+            name = st.text_input(tr("alias"), placeholder="Student_2026")
+            category = st.selectbox(tr("category"), ["Ask the community", "Interview experiences", "Find your peers"])
+            sector = st.selectbox(tr("sector"), ["General", "Marketing", "Hospitality", "Events", "Finance", "Consulting", "Technology", "Human Resources", "Design", "Other"])
+            topic = st.text_input(tr("topic"), max_chars=140)
+            body = st.text_area("Message", height=105, max_chars=1500)
+            submit = st.form_submit_button(tr("post"), type="primary")
+        if submit:
+            if not all(x.strip() for x in [name, topic, body]): st.error("Name, title and message required / Pseudo, titre et message obligatoires")
+            else:
+                st.session_state.discussions.insert(0, {
+                    "id": "user-" + str(pd.Timestamp.now().value), "author": clean_text(name, 45),
+                    "category": category, "sector": sector, "title": clean_text(topic, 140),
+                    "body": clean_text(body, 1500), "replies": 0,
+                    "posted": date.today().isoformat(), "user_replies": [],
+                })
+                st.success(tr("posted")); st.rerun()
+    st.subheader(tr("all_discussions"))
+    cat_filter = st.selectbox(tr("category"), ["All", "Ask the community", "Interview experiences", "Find your peers"], format_func=lambda x: tr("all") if x == "All" else x)
+    for p in st.session_state.discussions:
+        if cat_filter != "All" and p["category"] != cat_filter: continue
+        with st.container(border=True):
+            st.caption(f"{p['category']}  ·  {p['sector']}  ·  {p['posted']}")
+            st.markdown(f"### {html.escape(str(p['title']))}")
+            st.write(str(p["body"]))
+            st.caption(f"{p['author']}  ·  {int(p['replies']) + len(p['user_replies'])} replies / réponses")
+            for reply in p["user_replies"]:
+                st.markdown(f"**{html.escape(reply['author'])}:** {html.escape(reply['text'])}")
+            with st.expander("💬 " + tr("comment")):
+                with st.form("reply_"+str(p["id"]), clear_on_submit=True):
+                    author = st.text_input(tr("alias"), key="author_"+str(p["id"]))
+                    message = st.text_area("Message", max_chars=700, key="message_"+str(p["id"]))
+                    sent = st.form_submit_button(tr("send_reply"))
+                if sent and author.strip() and message.strip():
+                    p["user_replies"].append({"author": clean_text(author, 45), "text": clean_text(message, 700)})
+                    st.rerun()
+                elif sent: st.error("Please enter a name and a reply.")
+    with st.expander("🔗 " + tr("group_link")):
+        st.caption(tr("group_link_help"))
+        group_url = st.text_input("Verified invitation URL / Lien d'invitation vérifié", value=st.session_state.community_link)
+        if st.button("Save link / Enregistrer le lien"):
+            st.session_state.community_link = safe_url(group_url)
+            if group_url and not st.session_state.community_link: st.error("Use a complete http(s) URL")
+        if st.session_state.community_link:
+            st.link_button("Join external group / Rejoindre le groupe", st.session_state.community_link)
+
+elif chosen_page == "profile":
+    render_headline("My career profile" if language == "en" else "Mon parcours", tr("profile_header"), tr("profile_desc"))
+    show_demo_warning()
+    profile = st.session_state.profile_data
+    with st.form("career_profile"):
+        goal = st.text_area(tr("goal"), value=profile.get("goal", ""), height=105)
+        col1,col2 = st.columns(2)
+        skills = col1.text_area(tr("profile_skills"), value=profile.get("skills", ""), height=100)
+        sectors = col2.text_area(tr("interest"), value=profile.get("sectors", ""), height=100)
+        location = st.text_input(tr("location"), value=profile.get("location", ""))
+        contracts = st.multiselect(tr("contracts"), ["Internship", "Apprenticeship", "Other / unknown"], default=profile.get("contracts", ["Internship", "Apprenticeship"]))
+        cv = st.file_uploader(tr("resume"), type=["pdf", "docx", "txt"])
+        submitted = st.form_submit_button(tr("save_profile"), type="primary")
+    if submitted:
+        text_cv = profile.get("cv_text", "")
+        if cv is not None:
+            try:
+                text_cv = extract_cv(cv.name, cv.getvalue())
+                if len(text_cv.strip()) < 50: st.warning(tr("cv_warning"))
+                else: st.success(f"{tr('resume_ok')}: {len(text_cv)} characters")
+            except Exception as exc: st.warning(f"{tr('resume_err')}: {exc}")
+        st.session_state.profile_data = {"goal": clean_text(goal, 1200), "skills": clean_text(skills, 2500), "sectors": clean_text(sectors, 1000), "location": clean_text(location, 150), "contracts": contracts, "cv_text": text_cv}
+        st.success(tr("profile_saved"))
+    st.subheader("Profile insights / Aperçu des données")
+    st.write(f"**{tr('goal')}:** {st.session_state.profile_data['goal']}")
+    st.write(f"**{tr('profile_skills')}:** {st.session_state.profile_data['skills']}")
+    st.caption(f"CV text length / Longueur du texte CV: {len(st.session_state.profile_data['cv_text'])} characters · {tr('recalculate')}")
+
+elif chosen_page == "about":
+    render_headline("Transparency by design", tr("about_header"), tr("about_desc"))
+    for key in ("step1","step2","step3","step4"): st.markdown(tr(key))
+    st.divider()
+    st.subheader("Matching / Correspondance")
+    st.write("**AI mode:** sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2, cosine similarity of multilingual sentence embeddings, plus an explicit skills overlap component and location/contract preference adjustments.")
+    st.write("**Fallback mode:** scikit-learn character-level TF-IDF with the same structured adjustments. This ensures the app runs even when a large pretrained model cannot download.")
+    st.write("Scores measure relative textual fit, not interview likelihood or objective suitability. Review every recommendation critically.")
+    st.subheader("Job data / Données des offres")
+    st.write(tr("data_note"))
+    st.markdown("- [Greenhouse public Job Board API](https://developers.greenhouse.io/job-board.html) — unauthenticated public GETs for a specific employer board.\n- [Lever public Postings API](https://github.com/lever/postings-api) — public posts for a specific employer site.\n- Local demonstration CSV — fictional examples, never represented as live jobs.")
+    st.download_button(tr("download_data"), (ROOT / "data/sample_jobs.csv").read_bytes(), "CareerCollective_demo_jobs.csv", "text/csv")
+    st.subheader("Privacy & limitations / Confidentialité et limites")
+    st.write("No logins, no server-side database, no persistent shared community, no notifications, no automatic external applications, and no universal web scraping. Streamlit session state is transient; on a hosted server, uploaded CV text is processed in server memory. Use fictional profiles for a public demo.")
+    st.write(tr("download_prompts"))
+
+st.divider()
+st.caption("CareerCollective · Academic proof of concept · 2026 · Transparent sample data · Human judgment comes first")

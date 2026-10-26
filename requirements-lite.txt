@@ -1,0 +1,10 @@
+# Optional lightweight fallback if hosting the pretrained transformer exceeds resources.
+# Rename this file to requirements.txt before deployment; the UI will use TF-IDF baseline.
+streamlit>=1.47,<2
+pandas>=2.2,<3
+scikit-learn>=1.6,<2
+requests>=2.32,<3
+beautifulsoup4>=4.12,<5
+pypdf>=5.0,<7
+python-docx>=1.1,<2
+openpyxl>=3.1,<4
