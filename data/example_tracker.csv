@@ -1,5 +1,3 @@
-<PARSED TEXT FOR SHEET: 1 / 1 TABS
-TAB NAME: data__example_tracker.csv>
-index,job_id,company,title,city,contract,url,deadline,status,applied_on,notes,source
-0,example-1,Maison Rivage (DEMO),Operations & Guest Experience Intern,Nice,Internship,,2026-11-04,Applied,2026-10-25,Follow up in one week,Illustrative dataset
-1,example-2,Atelier Lumière (DEMO),Assistant Chef de Projet Événementiel,Paris,Apprenticeship,,2026-11-09,Saved,,Read requirements,Illustrative dataset
+job_id,company,title,city,contract,url,deadline,status,applied_on,notes,source
+example-1,Maison Rivage (DEMO),Operations & Guest Experience Intern,Nice,Internship,,2026-11-04,Applied,2026-10-25,Follow up in one week,Illustrative dataset
+example-2,Atelier Lumière (DEMO),Assistant Chef de Projet Événementiel,Paris,Apprenticeship,,2026-11-09,Saved,,Read requirements,Illustrative dataset
