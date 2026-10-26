@@ -8,7 +8,7 @@
 - Other tools such as Bard, Copilot, Kaggle, or Dataiku were **not** claimed as used.
 - All code and copy require review by the student team; no fabricated live data or evaluation statistics should be reported.
 
-## Prompt log — exact user prompts from this conversation
+## Prompt log  -  exact user prompts from this conversation
 
 1. **Project brief (excerpt)**: "Overall goal: Create your own AI application with existing tools." The user supplied the complete project requirements including a five-minute demo, reproducible code, data, a user guide, and a prompt log.
 2. **Initial product direction (excerpt)**: "The aim of our group is to create, what do you call, an app that helps people find internships and maybe apprenticeships, and maybe a tracker that can track the Excel sheets and the type of internships you're looking for, the tracks that are opening and closing dates of the offers, and maybe even a link to a group chat with other candidates."
@@ -37,3 +37,7 @@ Include any additional actual prompts sent to AI services by group members, what
 - User instruction: "Okay can we go with a white and blue interface upload actual listings and the ability to search for them and also remove emojis, its unprofessional"
 - Work performed with ChatGPT: rebuild UI styling in white/navy/blue, remove decorative emojis, design a searchable bilingual vacancy browser, identify public employer boards, implement concurrent Greenhouse/Lever feed import with error disclosure and caching, add a separate CSV of previously observed real employer URLs, document source verification limits, and create mock API tests.
 - AI generated draft Python changes were reviewed with Python compilation, pandas CSV parsing and a pytest regression suite before uploading. Full browser runtime / external provider uptime cannot be verified offline.
+
+### Demonstration dataset and user interface enhancement (26 October 2026)
+**Prompt (summary, user supplied):** "Create a fictional CV already uploaded, populate saved and sent applications, community involvement and deadlines. Remove all long dashes from text."
+**AI assistance:** Drafted a fictional candidate CV and PDF, created reproducible CSV and JSON fixtures, seeded session-only tracker and community actions, added prominent fictional-demo labeling, updated Python app code and tests. No external applications or posts were actually made.

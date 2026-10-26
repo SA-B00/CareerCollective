@@ -1,4 +1,4 @@
-# CareerCollective — Quick User Guide / Guide utilisateur
+# CareerCollective  -  Quick User Guide / Guide utilisateur
 
 ## First launch (English)
 
@@ -54,6 +54,11 @@ Recommended columns: `company,title,city,contract,url,deadline,status,applied_on
 
 Open **Discover**, then select **Employer listings** in the sidebar. Search by keywords (e.g. `marketing` or `stage`), choose a city, and filter by contract type, sector, and source. The default catalogue includes freshly checked participating employer feeds (when accessible) and 12 previously observed employer links whose current availability must be verified. **Live feeds only** displays only retrieved public postings; **Demonstration data** displays fictional roles. Select **Refresh live listings** to request updated employer boards. Job records are not automatically submitted and may close without notice.
 
-**Important:** A `PREVIOUSLY OBSERVED — VERIFY` label is not the same as a confirmed open role. Each external link should be checked before applying. The interface uses white and blue and does not display decorative emojis. AI semantic matching can be enabled using the sidebar selector (the fast baseline is the default).
+**Important:** A `PREVIOUSLY OBSERVED  -  VERIFY` label is not the same as a confirmed open role. Each external link should be checked before applying. The interface uses white and blue and does not display decorative emojis. AI semantic matching can be enabled using the sidebar selector (the fast baseline is the default).
 
 **Français :** Dans l'onglet **Discover / Découvrir**, sélectionnez **Offres d'employeurs**. Recherchez par mots-clés, filtrez par ville, contrat et secteur. Les annonces issues des flux publics sont distinctes des liens repérés précédemment, qui doivent être vérifiés auprès des employeurs. Le mode **Démonstration** contient uniquement des annonces fictives. Le modèle IA multilingue est accessible dans le menu latéral.
+
+## Included fictional user journey / Parcours fictif inclus
+The initial workspace contains an invented student, Alex Martin, with a CV already loaded for AI matching. The **My applications** section displays seven simulated records: Saved, Applied, Interview and Rejected, plus upcoming deadlines. In **Community**, Alex has started a question and replied to other demo participants. All posts and applications are fictional. Use the sidebar **Sample workspace** tools to restore the example or start blank. No application was sent to an employer.
+
+En ouvrant CareerCollective, un profil fictif, Alex Martin, est déjà chargé. Le suivi contient sept candidatures simulées, dont des candidatures marquées comme envoyées, un entretien et des échéances. Les messages communautaires sont également fictifs. Aucune candidature réelle n'a été envoyée.

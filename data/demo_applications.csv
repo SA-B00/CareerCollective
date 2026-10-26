@@ -1,0 +1,8 @@
+job_id,company,title,city,contract,url,deadline,status,applied_on,notes,source
+demo-001,Atelier Lumière (DEMO),Assistant Chef de Projet Événementiel,Paris,Apprenticeship,,2026-10-30,Saved,,Check required documents and submit before deadline.,FICTIONAL DEMO - not sent
+demo-015,Bistro Nouvelle (DEMO),Assistant Food & Beverage Projects,Paris,Apprenticeship,,2026-10-29,Saved,,Review concept experience and prepare tailored motivation statement; deadline approaching.,FICTIONAL DEMO - not sent
+demo-002,Studio Nova (DEMO),Marketing & Brand Intern,Lyon,Internship,,2026-11-18,Applied,2026-10-23,DEMO ONLY: fictional application submitted on 23 October; follow up next week.,FICTIONAL DEMO - not sent
+demo-010,Écho Studio (DEMO),Communication & Relations Presse,Paris,Apprenticeship,,2026-11-06,Applied,2026-10-24,DEMO ONLY: simulated online application submitted; waiting for acknowledgement.,FICTIONAL DEMO - not sent
+demo-014,Clairmont Consulting (DEMO),Apprenti Business Analyst,Paris,Apprenticeship,,2026-11-22,Applied,2026-10-25,DEMO ONLY: fictional CV and motivation letter submitted.,FICTIONAL DEMO - not sent
+demo-005,Maison Rivage (DEMO),Operations & Guest Experience Intern,Nice,Internship,,2026-11-04,Interview,2026-10-20,DEMO ONLY: simulated application advanced to interview; prepare service recovery examples.,FICTIONAL DEMO - not sent
+demo-013,Culture Commune (DEMO),Stage Chargé de Mission Culture,Strasbourg,Internship,,2026-11-10,Rejected,2026-10-19,DEMO ONLY: fictional rejection received; retain feedback for next application.,FICTIONAL DEMO - not sent

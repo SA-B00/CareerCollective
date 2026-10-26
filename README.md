@@ -1,9 +1,9 @@
-# CareerCollective — Professional blue/white edition
+# CareerCollective  -  Professional blue/white edition
 **Find your path. Track your progress. Grow together.**
 
 CareerCollective is a **bilingual (English/French) educational web application** for students searching for internships and apprenticeships in France. It combines explainable AI-powered matching, public job-board feed ingestion, a reusable application tracker, and a **clearly labeled session-only community prototype**.
 
-> **Important:** The 16 supplied sample jobs and 6 community threads are **fictional**. The 12 *previously observed employer links* in `data/observed_employer_listings.csv` point to real company-hosted vacancy pages discovered in October 2026 but **must be rechecked at the source**. Live job-feed results reflect the latest successful API request and may change.
+> **Important:** The 16 supplied sample jobs and 7 community threads are **fictional**. The 12 *previously observed employer links* in `data/observed_employer_listings.csv` point to real company-hosted vacancy pages discovered in October 2026 but **must be rechecked at the source**. Live job-feed results reflect the latest successful API request and may change.
 
 ## Finding real opportunities
 
@@ -15,11 +15,18 @@ You can switch to **Live feeds only** to hide previously observed employer links
 
 The UI uses white, navy and blue with text-only navigation and no decorative emojis. The fast TF-IDF model is selected initially for responsiveness; switch to the multilingual pretrained Hugging Face transformer using the sidebar selector for the AI-driven demonstration.
 
-> **Important:** The 16 supplied sample jobs and 6 community threads are **fictional**. They are not open vacancies, real individuals, or indicators of employer recruitment. The application does not submit job applications or send notifications.
+> **Important:** The 16 supplied sample jobs and 7 community threads are **fictional**. They are not open vacancies, real individuals, or indicators of employer recruitment. The application does not submit job applications or send notifications.
+
+
+## Preloaded fictional demo account
+
+At first launch, CareerCollective opens with **Alex Martin (FICTIONAL)**, an entirely invented candidate. The sample CV is preloaded into the matching profile and downloadable as `data/Alex_Martin_Fictional_CV.pdf` or `data/example_cv.txt`. Seven sample tracked applications demonstrate Saved, Applied, Interview and Rejected statuses. Fictional deadlines are attached only to fictional demo jobs, and an authored community question plus illustrative replies show discussion participation. **No real applications were sent, and no real students are represented.**
+
+Use **Sample workspace** in the sidebar to reload the fictional example or start with an empty profile. Changes in the shared Streamlit demo are session-only. The example application data are stored in `data/demo_applications.csv`, the profile in `data/demo_profile.json`, and sample replies in `data/demo_community_replies.csv`.
 
 ## Start locally
 
-Supported: Python 3.11–3.13, browser, internet connection for *optional* pretrained-model download and live feeds.
+Supported: Python 3.11 - 3.13, browser, internet connection for *optional* pretrained-model download and live feeds.
 
 ```bash
 python -m venv .venv
@@ -103,7 +110,7 @@ The project itself does **not** create a public URL, and it cannot publish to yo
 
 ## Verification status
 
-The pure Python modules passed **11 unit tests** on 26 October 2026. The full Streamlit UI, model download, public feeds and cloud deployment still need an internet-connected smoke test. See `TEST_REPORT.md`.
+The pure Python modules passed **19 unit tests** on 26 October 2026. The full Streamlit UI, model download, public feeds and cloud deployment still need an internet-connected smoke test. See `TEST_REPORT.md`.
 
 ## Run tests
 

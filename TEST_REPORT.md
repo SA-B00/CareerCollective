@@ -1,11 +1,13 @@
-# CareerCollective — Verification report (2026-10-26)
+# CareerCollective  -  Verification report (2026-10-26)
 
 ## Checks performed
 
-- `python -m pytest -q` — **11 tests passed**.
-- `python -m compileall -q app.py core.py sources.py evaluate_matching.py` — **passed**.
-- `python evaluate_matching.py` — **ran** against the 16 fictional sample roles and 3 synthetic profiles.
+- `python -m pytest -q`  -  **19 tests passed**.
+- `python -m compileall -q app.py core.py sources.py demo_data.py evaluate_matching.py`  -  **passed**.
+- `python evaluate_matching.py`  -  **ran** against the 16 fictional sample roles and 3 synthetic profiles.
 - PDF guide rendered and visually checked; final document has **2 pages**.
+
+- Sample profile, bundled PDF CV, seven fictitious tracker entries, community participation, and no long dashes in sample text are covered by new regression checks.
 
 ## What tests cover
 
@@ -26,13 +28,13 @@ The reproducible fallback produced top-3 precision scores of 1.00 (events), 0.67
 - The full Streamlit browser interface was **not launched**, because Streamlit was not installed and the sandbox could not reach Python package download servers.
 - The pretrained Hugging Face model was **not downloaded here**, so the actual transformer inference path still requires a first-run test in the target environment.
 - Third-party live API endpoints were **not called from the execution sandbox**; feed extraction was verified with mocked responses only.
-- GitHub deployment and the resulting public Streamlit URL have **not** been created; they require connected GitHub/Streamlit account actions.
+- GitHub repository has been created and code is already deployed there. The public Streamlit website has not been browser-verified in this test environment.
 
 ## Required pre-submission smoke test
 
 1. Install dependencies in a normal internet-connected environment.
 2. Run `streamlit run app.py`.
-3. Use `data/example_cv.txt` to test the CV/profile feature.
+3. Confirm Alex Martin is already loaded and the fictional PDF CV can be downloaded from My profile.
 4. Switch AI engine and confirm that the page explicitly says **Multilingual pretrained transformer** rather than fallback.
 5. Save a role; edit its tracker row; export/open Excel.
 6. Post and reply in Community; confirm these are session-only.

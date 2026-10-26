@@ -116,7 +116,7 @@ def test_bundled_sample_csv_integrity():
     from pathlib import Path
     root = Path(__file__).resolve().parents[1] / "data"
     expected = {
-        "sample_discussions.csv": (6, {"id", "author", "body", "posted"}),
+        "sample_discussions.csv": (7, {"id", "author", "body", "posted"}),
         "sample_jobs.csv": (16, {"id", "title", "company", "deadline", "source_type"}),
         "example_tracker.csv": (2, {"job_id", "company", "status", "notes"}),
     }
@@ -135,7 +135,7 @@ def test_observed_employer_csv_integrity():
     df = pd.read_csv(Path(__file__).resolve().parents[1] / "data/observed_employer_listings.csv", dtype=str)
     assert len(df) == 12
     assert df.url.str.startswith("https://").all()
-    assert (df["source_type"] == "Employer link — verify").all()
+    assert (df["source_type"] == "Employer link  -  verify").all()
     assert (df["deadline"].isna() | (df["deadline"] == "")).all()
 
 
@@ -166,3 +166,43 @@ def test_featured_job_search_continues_if_board_fails(monkeypatch):
     assert len(errors) == 1 and "Bigblue" in errors[0]
     assert len(jobs) == checked
     assert all(x["source_type"] == "Live feed" for x in jobs)
+
+
+def test_demo_profile_and_cv_present():
+    from pathlib import Path
+    from demo_data import load_demo_profile
+    root=Path(__file__).resolve().parents[1]
+    profile=load_demo_profile(root)
+    assert "ALEX MARTIN" in profile["cv_text"]
+    assert "FICTIONAL" in profile["cv_text"]
+    assert "Paris" in profile["location"]
+    assert (root / "data/Alex_Martin_Fictional_CV.pdf").read_bytes().startswith(b"%PDF")
+
+def test_demo_applications_are_simulated_and_deadlines():
+    from pathlib import Path
+    from demo_data import load_demo_tracker
+    root=Path(__file__).resolve().parents[1]
+    records=list(load_demo_tracker(root).values())
+    assert len(records)==7
+    assert sum(x["status"]=="Applied" for x in records)==3
+    assert sum(x["status"]=="Saved" for x in records)==2
+    assert sum(x["status"]=="Interview" for x in records)==1
+    assert all("FICTIONAL" in x["source"] for x in records)
+    assert all(x["applied_on"] for x in records if x["status"]=="Applied")
+
+def test_demo_community_contains_candidate_participation():
+    from pathlib import Path
+    from demo_data import load_demo_discussions
+    root=Path(__file__).resolve().parents[1]
+    posts=load_demo_discussions(root)
+    assert len(posts)==7
+    assert sum("Alex Martin" in p["author"] for p in posts)==1
+    assert sum("Alex Martin" in reply["author"] for p in posts for reply in p["user_replies"]) >= 3
+
+def test_no_long_dashes_in_app_and_demo_copy():
+    from pathlib import Path
+    root=Path(__file__).resolve().parents[1]
+    paths=[root/"app.py",root/"demo_data.py",*list((root/"data").glob("*.csv")),root/"data/example_cv.txt"]
+    for path in paths:
+        text=path.read_text(encoding="utf-8")
+        assert "\u2014" not in text and "\u2013" not in text, str(path)

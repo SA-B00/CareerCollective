@@ -86,7 +86,7 @@ def monitored_status(tracked_job: dict, new_jobs: list[dict], source_checked: bo
     urls = {j.get("url") for j in new_jobs if j.get("url")}
     ids = {j.get("id") for j in new_jobs}
     return ("Still listed" if tracked_job.get("job_id") in ids or (tracked_job.get("url") and tracked_job.get("url") in urls)
-            else "Not found in latest feed — verify at source")
+            else "Not found in latest feed  -  verify at source")
 
 
 # Curated employers with publicly readable recruitment APIs. These identifiers are
