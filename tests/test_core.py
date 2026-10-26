@@ -110,3 +110,21 @@ def test_missing_post_is_uncertain():
     row = {"job_id": "a", "url": "https://example.com/a"}
     assert "verify" in monitored_status(row, [], True)
     assert monitored_status(row, [], False) == "Not checked"
+
+def test_bundled_sample_csv_integrity():
+    """Catch accidentally exported spreadsheet-preview text in bundled CSV files."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1] / "data"
+    expected = {
+        "sample_discussions.csv": (6, {"id", "author", "body", "posted"}),
+        "sample_jobs.csv": (16, {"id", "title", "company", "deadline", "source_type"}),
+        "example_tracker.csv": (2, {"job_id", "company", "status", "notes"}),
+    }
+    for filename, (count, columns) in expected.items():
+        path = root / filename
+        assert not path.read_text(encoding="utf-8").startswith("<PARSED TEXT")
+        df = pd.read_csv(path)
+        assert len(df) == count
+        assert columns.issubset(df.columns)
+        assert "index" not in df.columns
