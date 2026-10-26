@@ -40,3 +40,8 @@
 ## Optional evaluation test
 
 Ask 3–5 volunteer students to rank 6–8 example roles for a fictional profile, then compare the selected match engine's top-3 precision to the baseline against their judgments. Record your actual test results and disclose the small sample size. Do not invent statistics.
+
+
+## Updated live-listings demonstration (26 October 2026)
+
+For the final video, begin in **Discover > Employer listings** (not Demonstration data). Show the text-only white-and-blue navigation. Search `marketing` and then select `Paris`, or show `data` to compare sources and matching scores. Explain that public Greenhouse/Lever employer feeds are queried at runtime and that `PREVIOUSLY OBSERVED — VERIFY` links are real previously observed employer job pages, not a claim of active availability. Open an official employer listing, save it to **My applications**, change its status, and export the Excel tracker. Switch to **Demonstration data** only if you wish to show the clearly fictional sample scenario. Show semantic AI matching using the sidebar selector when time permits; the fast TF-IDF mode is the fallback.
