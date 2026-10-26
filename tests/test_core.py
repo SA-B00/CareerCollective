@@ -114,7 +114,6 @@ def test_missing_post_is_uncertain():
 def test_bundled_sample_csv_integrity():
     """Catch accidentally exported spreadsheet-preview text in bundled CSV files."""
     from pathlib import Path
-
     root = Path(__file__).resolve().parents[1] / "data"
     expected = {
         "sample_discussions.csv": (6, {"id", "author", "body", "posted"}),
@@ -128,3 +127,42 @@ def test_bundled_sample_csv_integrity():
         assert len(df) == count
         assert columns.issubset(df.columns)
         assert "index" not in df.columns
+
+
+
+def test_observed_employer_csv_integrity():
+    from pathlib import Path
+    df = pd.read_csv(Path(__file__).resolve().parents[1] / "data/observed_employer_listings.csv", dtype=str)
+    assert len(df) == 12
+    assert df.url.str.startswith("https://").all()
+    assert (df["source_type"] == "Employer link — verify").all()
+    assert (df["deadline"].isna() | (df["deadline"] == "")).all()
+
+
+def test_student_roles_and_france_check():
+    from sources import student_opportunity, france_location
+    assert student_opportunity(job(title="Internship data analyst", contract="Internship"))
+    assert student_opportunity(job(title="Alternance marketing", contract="Apprenticeship"))
+    assert not student_opportunity(job(title="Head of Analytics", contract="Other / unknown"))
+    assert france_location("Paris, France")
+    assert not france_location("London, United Kingdom")
+
+
+def test_featured_job_search_continues_if_board_fails(monkeypatch):
+    from sources import fetch_featured_jobs
+    import sources
+    def fake_lever(slug):
+        if slug == "bigblue":
+            raise RuntimeError("temporary outage")
+        return [job(id="lever:" + slug, title="Marketing Internship",
+                    contract="Internship", city="Paris, France", source_type="Live feed")]
+    def fake_greenhouse(slug):
+        return [job(id="gh:" + slug, title="Stage Marketing",
+                    contract="Internship", city="Paris, France", source_type="Live feed")]
+    monkeypatch.setattr(sources, "fetch_lever", fake_lever)
+    monkeypatch.setattr(sources, "fetch_greenhouse", fake_greenhouse)
+    jobs, errors, checked = fetch_featured_jobs()
+    assert checked == len(sources.FEATURED_BOARDS)-1
+    assert len(errors) == 1 and "Bigblue" in errors[0]
+    assert len(jobs) == checked
+    assert all(x["source_type"] == "Live feed" for x in jobs)

@@ -48,3 +48,12 @@ Recommended columns: `company,title,city,contract,url,deadline,status,applied_on
 - **Nothing from an employer feed:** check the correct company board identifier; that employer may have no current internships or may not use the selected service.
 - **Scanned CV appears blank:** enter your details manually; OCR is not part of this demo.
 - **Saved records disappeared:** restore the session JSON backup; they were not stored permanently.
+
+
+## Update: real employer listings and blue/white interface
+
+Open **Discover**, then select **Employer listings** in the sidebar. Search by keywords (e.g. `marketing` or `stage`), choose a city, and filter by contract type, sector, and source. The default catalogue includes freshly checked participating employer feeds (when accessible) and 12 previously observed employer links whose current availability must be verified. **Live feeds only** displays only retrieved public postings; **Demonstration data** displays fictional roles. Select **Refresh live listings** to request updated employer boards. Job records are not automatically submitted and may close without notice.
+
+**Important:** A `PREVIOUSLY OBSERVED — VERIFY` label is not the same as a confirmed open role. Each external link should be checked before applying. The interface uses white and blue and does not display decorative emojis. AI semantic matching can be enabled using the sidebar selector (the fast baseline is the default).
+
+**Français :** Dans l'onglet **Discover / Découvrir**, sélectionnez **Offres d'employeurs**. Recherchez par mots-clés, filtrez par ville, contrat et secteur. Les annonces issues des flux publics sont distinctes des liens repérés précédemment, qui doivent être vérifiés auprès des employeurs. Le mode **Démonstration** contient uniquement des annonces fictives. Le modèle IA multilingue est accessible dans le menu latéral.

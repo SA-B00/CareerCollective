@@ -30,3 +30,10 @@ The following are **summary prompts**, not verbatim user messages. They record t
 ## Recommended team entries before submission
 
 Include any additional actual prompts sent to AI services by group members, what each response was used for, and the team member responsible for verification and integration. Do not report imaginary tests or tools.
+
+
+## Upgrade prompts and work (26 October 2026)
+
+- User instruction: "Okay can we go with a white and blue interface upload actual listings and the ability to search for them and also remove emojis, its unprofessional"
+- Work performed with ChatGPT: rebuild UI styling in white/navy/blue, remove decorative emojis, design a searchable bilingual vacancy browser, identify public employer boards, implement concurrent Greenhouse/Lever feed import with error disclosure and caching, add a separate CSV of previously observed real employer URLs, document source verification limits, and create mock API tests.
+- AI generated draft Python changes were reviewed with Python compilation, pandas CSV parsing and a pytest regression suite before uploading. Full browser runtime / external provider uptime cannot be verified offline.

@@ -260,7 +260,7 @@ def export_tracker_xlsx(rows: list[dict]) -> bytes:
         for col, width in widths.items():
             ws.column_dimensions[col].width = width
         for cell in ws[1]:
-            cell.fill = PatternFill("solid", fgColor="193D43")
+            cell.fill = PatternFill("solid", fgColor="205CAA")
             cell.font = Font(bold=True, color="FFFFFF")
             cell.alignment = Alignment(vertical="center")
         for row in ws.iter_rows(min_row=2):

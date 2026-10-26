@@ -87,3 +87,75 @@ def monitored_status(tracked_job: dict, new_jobs: list[dict], source_checked: bo
     ids = {j.get("id") for j in new_jobs}
     return ("Still listed" if tracked_job.get("job_id") in ids or (tracked_job.get("url") and tracked_job.get("url") in urls)
             else "Not found in latest feed — verify at source")
+
+
+# Curated employers with publicly readable recruitment APIs. These identifiers are
+# independently verifiable via their employer-hosted job board URLs. They are
+# sources, not a guarantee that any particular vacancy remains available.
+FEATURED_BOARDS = [
+    ("Lever", "vestiairecollective", "Vestiaire Collective"),
+    ("Lever", "bigblue", "Bigblue"),
+    ("Lever", "cheerz", "Cheerz"),
+    ("Lever", "scaleway", "Scaleway"),
+    ("Lever", "ekimetrics", "Ekimetrics"),
+    ("Lever", "c12qe", "C12 Quantum Electronics"),
+    ("Greenhouse", "aircallioinc", "Aircall"),
+    ("Greenhouse", "mirakl", "Mirakl"),
+]
+
+# Only treat a role as France-based when the published location gives adequate
+# evidence. Ambiguous locations are NOT presented as France-based matches.
+FRANCE_LOCATIONS = (
+    "france", "paris", "lyon", "bordeaux", "lille", "nantes", "toulouse",
+    "marseille", "strasbourg", "nice", "rennes", "montpellier", "grenoble",
+    "rouen", "dijon", "cergy", "boulogne", "levallois", "neuilly",
+    "courbevoie", "puteaux", "saint-denis", "la défense", "suresnes",
+    "aix-en-provence", "île-de-france", "ile-de-france",
+)
+
+
+def france_location(location: str) -> bool:
+    value = clean_text(location).casefold()
+    return bool(value) and any(x in value for x in FRANCE_LOCATIONS)
+
+
+def student_opportunity(job: dict) -> bool:
+    """Stay conservative: identify explicit internships/apprenticeships only."""
+    if job.get("contract") not in ("Internship", "Apprenticeship"):
+        return False
+    # A generic boilerplate sentence in a long description is not enough.
+    title = (job.get("title") or "").casefold()
+    return bool(re.search(r"stage|stagiaire|intern|alternan|apprenti|apprentice|trainee|work[ -]study", title)) or (
+        job.get("contract") == "Apprenticeship" and "apprentice" in (job.get("description") or "").lower()[:250]
+    ) or (job.get("contract") == "Internship" and "internship" in (job.get("description") or "").lower()[:200])
+
+
+def fetch_featured_jobs() -> tuple[list[dict], list[str], int]:
+    """Query a small fixed list of public employer boards. No scraping/login.
+
+    Failures are reported explicitly and do not prevent other sources loading.
+    Returned results are published public postings filtered for France and students.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def one_board(config):
+        provider, slug, display_name = config
+        results = fetch_greenhouse(slug) if provider == "Greenhouse" else fetch_lever(slug)
+        relevant = []
+        for job in results:
+            if france_location(job.get("city", "")) and student_opportunity(job):
+                job["company"] = display_name
+                relevant.append(job)
+        return relevant
+
+    matching, errors, successful = [], [], 0
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        tasks = {pool.submit(one_board, board): board for board in FEATURED_BOARDS}
+        for task in as_completed(tasks):
+            board = tasks[task]
+            try:
+                matching.extend(task.result())
+                successful += 1
+            except Exception as exc:
+                errors.append(f"{board[2]} ({type(exc).__name__})")
+    return matching, sorted(errors), successful

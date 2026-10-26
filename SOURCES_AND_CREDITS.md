@@ -30,3 +30,13 @@
 ## Responsible AI statement
 
 CareerCollective does not determine eligibility, predict recruiter decisions, process protected characteristics in a scoring model, rank people for employers, or automate job applications. Recommendation scores should be treated as suggestions. The bilingual matching pipeline may reproduce bias from pretrained text and cannot ensure fair outcomes across languages or experience levels.
+
+
+## Additional live source and observed-listing notes (26 October 2026)
+
+- Eight public employer boards are queried through the official Lever and Greenhouse public posting APIs, **not** through LinkedIn/Indeed scraping. The curated board identifiers are listed in `sources.py`.
+- `data/observed_employer_listings.csv` contains twelve previously observed company-hosted job links. These were observed through publicly accessible employer listings in October 2026; availability and application deadlines must be verified at the source. This dataset is distinct from currently refreshed live feeds and from the fictional demonstration set.
+- Lever public postings API: https://github.com/lever/postings-api
+- Greenhouse public job board documentation: https://docs.greenhouse.io/job-board.html
+- Companies: Vestiaire Collective, Bigblue, Cheerz, Scaleway, Ekimetrics, C12 Quantum Electronics, Aircall and Mirakl. Example employer-hosted pages are linked inside `data/observed_employer_listings.csv`.
+- Do not reuse the old sample-data CSVs as evidence of real vacancies.

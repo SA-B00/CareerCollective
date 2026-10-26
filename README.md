@@ -1,7 +1,19 @@
-# CareerCollective
+# CareerCollective — Professional blue/white edition
 **Find your path. Track your progress. Grow together.**
 
 CareerCollective is a **bilingual (English/French) educational web application** for students searching for internships and apprenticeships in France. It combines explainable AI-powered matching, public job-board feed ingestion, a reusable application tracker, and a **clearly labeled session-only community prototype**.
+
+> **Important:** The 16 supplied sample jobs and 6 community threads are **fictional**. The 12 *previously observed employer links* in `data/observed_employer_listings.csv` point to real company-hosted vacancy pages discovered in October 2026 but **must be rechecked at the source**. Live job-feed results reflect the latest successful API request and may change.
+
+## Finding real opportunities
+
+On **Discover**, leave the **Employer listings** catalogue selected (default). CareerCollective fetches public Greenhouse and Lever postings from eight curated employers: Vestiaire Collective, Bigblue, Cheerz, Scaleway, Ekimetrics, C12 Quantum Electronics, Aircall and Mirakl. Search by keyword and city; filter by industry, internship versus apprenticeship, and source. Links open the official employer posting. Use **Refresh live listings** to clear the 30-minute feed cache.
+
+You can switch to **Live feeds only** to hide previously observed employer links, or **Demonstration data** to show the fictional student dataset. If company APIs are unavailable, the employer-links mode still shows previously observed real URLs with prominent verification notices. This app is **not** a universal crawler and does not promise comprehensive French job-board coverage. Application deadlines are displayed only if explicitly present in the employer content.
+
+## Interface
+
+The UI uses white, navy and blue with text-only navigation and no decorative emojis. The fast TF-IDF model is selected initially for responsiveness; switch to the multilingual pretrained Hugging Face transformer using the sidebar selector for the AI-driven demonstration.
 
 > **Important:** The 16 supplied sample jobs and 6 community threads are **fictional**. They are not open vacancies, real individuals, or indicators of employer recruitment. The application does not submit job applications or send notifications.
 

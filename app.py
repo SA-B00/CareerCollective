@@ -9,6 +9,7 @@ import html
 import io
 import json
 import os
+import re
 from datetime import date, datetime
 from pathlib import Path
 
@@ -21,37 +22,44 @@ from core import (
     filter_jobs, import_tracker, make_tracker_row, normalize_date,
     normalize_job, rank_jobs, safe_url,
 )
-from sources import fetch_greenhouse, fetch_lever, monitored_status
+from sources import fetch_greenhouse, fetch_lever, fetch_featured_jobs, monitored_status
 
 ROOT = Path(__file__).parent
-st.set_page_config(page_title="CareerCollective | Find your next step", page_icon="🧭", layout="wide", initial_sidebar_state="expanded")
+DISPLAY_PICTOGRAPHS = re.compile(r"[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u200D]")
+
+
+def professional_text(value):
+    """Remove emoji characters from untrusted employer descriptions in the UI."""
+    return DISPLAY_PICTOGRAPHS.sub("", str(value))
+
+
+st.set_page_config(page_title="CareerCollective | Find your next step", page_icon=":material/work:", layout="wide", initial_sidebar_state="expanded")
 
 CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
-:root {--forest:#103f42; --sage:#dcefe6; --cream:#f8f7f2; --coral:#e8936d;}
-html,body,[class*="css"],.stApp {font-family:'DM Sans',sans-serif;}
-.stApp {background:#fafaf7;color:#24383b;}
-h1,h2,h3 {font-family:'Outfit',sans-serif;letter-spacing:-.025em;}
-.block-container {max-width:1330px;padding-top:1.9rem;padding-bottom:4rem;}
-[data-testid="stSidebar"] {background:#f2f5f0;border-right:1px solid #e1eae2;}
-[data-testid="stSidebar"] .stRadio label {font-weight:500;}
-.hero {background:linear-gradient(115deg,#113d43 0%,#285c59 72%,#568a76 100%);border-radius:24px;padding:32px 38px 30px;margin-bottom:23px;color:#fff;position:relative;overflow:hidden;}
-.hero:after {content:'';position:absolute;right:-45px;top:-85px;width:330px;height:330px;border:1px solid #ffffff50;border-radius:50%;box-shadow:0 0 0 50px #ffffff08,0 0 0 105px #ffffff08;pointer-events:none;}
-.hero h1{color:#fff!important;font-size:2.45rem;line-height:1.1;margin:0 0 12px;max-width:750px;}
-.hero p{color:#ebf7f2;margin:0;max-width:720px;font-size:1rem;}
-.eyebrow{font-size:.71rem!important;text-transform:uppercase;letter-spacing:.17em;font-weight:800;color:#c1e9d9!important;margin-bottom:10px!important;}
-.tiny-pill{display:inline-block;border-radius:99px;padding:5px 11px;background:#e8f2ec;color:#255949;font-size:.73rem;font-weight:700;margin-right:5px;}
-.disclaimer{border:1px solid #dce6dd;background:#f5f8f3;border-radius:11px;padding:11px 15px;color:#526563;font-size:.83rem;margin-top:12px;}
-.header-line {font-size:1.8rem;font-weight:750;color:#183b3e;margin-bottom:.1rem;}
-.note-small {font-size:.83rem;color:#72827d;}
-[data-testid="stMetric"] {background:#fff;border:1px solid #e8eae4;border-radius:15px;padding:15px 18px;}
-[data-testid="stVerticalBlockBorderWrapper"] {border-color:#e4e9e5!important;border-radius:17px!important;}
-div.stButton>button[kind="primary"] {background:#145b56;border:1px solid #145b56;border-radius:11px;color:white;font-weight:700;}
-div.stButton>button[kind="primary"]:hover {background:#103f42;border-color:#103f42;}
-div.stButton>button {border-radius:10px;}
-[data-testid="stLinkButton"] a {border-radius:10px;}
-hr{border-top:1px solid #e6ebe5!important;}
+:root {--navy:#18385f;--blue:#205caa;--ink:#213652;--pale:#eef5fd;--line:#d9e6f7;}
+html,body,[class*="css"],.stApp{font-family:'DM Sans',sans-serif;}
+.stApp{background:#ffffff;color:#213652;}
+h1,h2,h3{font-family:'Outfit',sans-serif;letter-spacing:-.023em;color:#1b3558;}
+.block-container{max-width:1320px;padding-top:2rem;padding-bottom:4rem;}
+[data-testid="stSidebar"]{background:#f7faff;border-right:1px solid #e2ebf7;}
+[data-testid="stSidebar"] .stRadio label{font-weight:500;color:#28476d;}
+.hero{background:linear-gradient(115deg,#ffffff 0%,#f2f7ff 100%);border:1px solid #dce9f8;border-left:5px solid #205caa;border-radius:17px;padding:28px 36px;margin-bottom:22px;color:#203d63;box-shadow:0 5px 23px #173c7410;}
+.hero h1{color:#163960!important;font-size:2.4rem;line-height:1.15;margin:0 0 12px;max-width:800px;}
+.hero p{color:#536b88;margin:0;max-width:780px;font-size:1rem;}
+.eyebrow{font-size:.74rem!important;text-transform:uppercase;letter-spacing:.13em;font-weight:800;color:#2768b3!important;margin-bottom:10px!important;}
+.tiny-pill{display:inline-block;border-radius:7px;padding:5px 11px;background:#eaf2fd;color:#234f8b;font-size:.76rem;font-weight:700;margin-right:6px;}
+.disclaimer{border:1px solid #dce8f7;background:#f7faff;border-radius:10px;padding:11px 15px;color:#526b87;font-size:.84rem;margin-top:12px;}
+.header-line{font-size:1.8rem;font-weight:750;color:#183b64;margin-bottom:.1rem;}
+.note-small{font-size:.83rem;color:#687f9b;}
+[data-testid="stMetric"]{background:#f8fbff;border:1px solid #e1eaf7;border-radius:13px;padding:15px 18px;}
+[data-testid="stVerticalBlockBorderWrapper"]{border-color:#e0e9f6!important;border-radius:14px!important;}
+div.stButton>button[kind="primary"]{background:#205caa;border:1px solid #205caa;border-radius:9px;color:white;font-weight:700;}
+div.stButton>button[kind="primary"]:hover{background:#164680;border-color:#164680;}
+div.stButton>button{border-radius:9px;}
+[data-testid="stLinkButton"] a{border-radius:9px;}
+hr{border-top:1px solid #e7eef8!important;}
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -61,7 +69,7 @@ TEXT = {
         "discover": "Discover", "tracker": "My applications", "community": "Community", "profile": "My profile", "about": "About & sources",
         "subtitle": "AI-guided internships, apprenticeships and a community to move forward together.",
         "welcome": "Your next opportunity starts here.", "mission": "Discover relevant internships and apprenticeships, organize every application, and learn from other students — all in one place.",
-        "demo": "Demonstration mode", "info": "No sign-in or persistent accounts. Your CV, applications and posts stay in this active session; export anything you want to keep. Demo listings are fictional and are not open vacancies.",
+        "demo": "Demonstration mode", "info": "No sign-in or persistent accounts. Export anything you wish to keep. Sample listings and community conversations are fictional; employer links must be checked at source.",
         "total": "Opportunities", "tracked": "Applications tracked", "soon": "Deadlines within 7 days", "posts": "Community discussions",
         "matches": "Find your matches", "find_desc": "Smart matching considers your goals, transferable skills and career interests — not just job-title keywords.",
         "query": "Search jobs, companies or skills", "sector": "Industry", "contract": "Contract type", "source": "Source", "france": "Prioritize France / exclude obvious non-French cities", "all": "All",
@@ -79,7 +87,7 @@ TEXT = {
         "profile_header": "Make the recommendations yours.", "profile_desc": "Tell CareerCollective what you want to do next. You can type details or upload a machine-readable CV.",
         "goal": "Career goal / roles sought", "location": "Preferred location", "interest": "Preferred industries", "profile_skills": "Skills and experiences", "contracts": "Looking for", "resume": "Upload your CV (PDF, DOCX, TXT)", "resume_ok": "CV text extracted", "resume_err": "Unable to read this file", "cv_warning": "Scanned or image-only PDFs cannot be read here. Enter your background manually instead.", "save_profile": "Save profile", "profile_saved": "Profile updated. Recommendations will use these preferences.", "engine": "AI matching engine", "engine_fast": "Fast text-similarity baseline", "engine_ai": "Multilingual pretrained transformer (AI)", "model_error": "The pretrained model was unavailable. Showing the reproducible text-matching baseline instead.", "current_engine": "Current engine", "recalculate": "Recommendations refresh when your profile or filters change.",
         "about_header": "How CareerCollective works", "about_desc": "Educational prototype built for a student AI project. Its capabilities and limitations are clearly labeled.",
-        "step1": "1. Describe your experience and career goals or upload a CV.", "step2": "2. Explore illustrative roles, manually added listings, and supported public employer feeds.", "step3": "3. Compare explainable recommendations, save roles and track the process.", "step4": "4. Exchange ideas in the demonstrative Community area and export your records.",
+        "step1": "1. Describe your experience and career goals or upload a CV.", "step2": "2. Search current public employer feeds and previously observed employer links; switch to sample roles only for demos.", "step3": "3. Compare explainable recommendations, save roles and track the process.", "step4": "4. Exchange ideas in the demonstrative Community area and export your records.",
         "data_note": "Example data are fictional and intended only for testing. Live listings originate directly from selected employers' publicly available feeds; their availability can change. No automated applications are submitted.",
         "download_data": "Download demonstration dataset", "download_prompts": "Sources, technical citations and example prompts are included in the project ZIP.",
         "filter_none": "No results match the current filters. Try broader terms, or add a job manually.",
@@ -88,7 +96,7 @@ TEXT = {
         "discover": "Découvrir", "tracker": "Mes candidatures", "community": "Communauté", "profile": "Mon profil", "about": "À propos & sources",
         "subtitle": "Stages, alternances et entraide étudiante, guidés par l'IA.",
         "welcome": "Votre prochaine opportunité commence ici.", "mission": "Trouvez des stages et alternances adaptés, suivez vos candidatures et échangez avec d'autres étudiants — au même endroit.",
-        "demo": "Mode démonstration", "info": "Sans compte ni sauvegarde permanente. Votre CV, vos candidatures et messages restent dans cette session ; exportez vos données avant de quitter. Les annonces de démonstration sont fictives.",
+        "demo": "Mode démonstration", "info": "Sans compte ni sauvegarde permanente. Exportez vos données avant de quitter. Les annonces de démonstration sont fictives ; vérifiez les liens auprès des employeurs.",
         "total": "Opportunités", "tracked": "Candidatures suivies", "soon": "Échéances sous 7 jours", "posts": "Discussions",
         "matches": "Trouver des opportunités", "find_desc": "La recommandation examine vos objectifs, compétences transférables et centres d'intérêt, au-delà des seuls mots-clés.",
         "query": "Rechercher poste, entreprise ou compétences", "sector": "Secteur", "contract": "Type de contrat", "source": "Source", "france": "Priorité France / exclure les villes étrangères évidentes", "all": "Tous",
@@ -106,7 +114,7 @@ TEXT = {
         "profile_header": "Des recommandations qui vous ressemblent.", "profile_desc": "Indiquez vos objectifs. Vous pouvez saisir votre parcours ou importer un CV contenant du texte sélectionnable.",
         "goal": "Objectif / postes recherchés", "location": "Lieu privilégié", "interest": "Secteurs recherchés", "profile_skills": "Compétences et expériences", "contracts": "Je recherche", "resume": "Importer un CV (PDF, DOCX, TXT)", "resume_ok": "Texte du CV extrait", "resume_err": "Lecture du fichier impossible", "cv_warning": "Les PDF scannés ne peuvent pas être lus ici. Indiquez manuellement votre parcours.", "save_profile": "Enregistrer le profil", "profile_saved": "Profil mis à jour. Les recommandations tiennent compte de vos critères.", "engine": "Moteur de recommandation", "engine_fast": "Référence rapide par similarité textuelle", "engine_ai": "Transformeur multilingue pré-entraîné (IA)", "model_error": "Modèle IA indisponible. Utilisation de la comparaison textuelle reproductible.", "current_engine": "Moteur actif", "recalculate": "Les résultats évoluent avec les informations de votre profil et les filtres.",
         "about_header": "Comment fonctionne CareerCollective", "about_desc": "Prototype pédagogique pour un projet d'IA, avec limites explicites.",
-        "step1": "1. Présentez votre parcours et vos objectifs, ou importez un CV.", "step2": "2. Parcourez des offres fictives, des offres saisies et des annonces publiques d'entreprises sélectionnées.", "step3": "3. Consultez les recommandations expliquées et suivez vos candidatures.", "step4": "4. Échangez dans la communauté de démonstration et exportez vos données.",
+        "step1": "1. Présentez votre parcours et vos objectifs, ou importez un CV.", "step2": "2. Recherchez les offres publiques et les liens employeurs vérifiables ; les annonces fictives restent dans le mode démo.", "step3": "3. Consultez les recommandations expliquées et suivez vos candidatures.", "step4": "4. Échangez dans la communauté de démonstration et exportez vos données.",
         "data_note": "Le jeu de données fourni est fictif et destiné au test. Les offres en direct proviennent des flux publics des entreprises choisies et peuvent évoluer. Aucune candidature n'est envoyée automatiquement.",
         "download_data": "Télécharger les données de démonstration", "download_prompts": "Sources, références techniques et exemples de prompts figurent dans l'archive du projet.",
         "filter_none": "Aucun résultat. Élargissez les filtres ou ajoutez une offre manuellement.",
@@ -124,6 +132,9 @@ if "profile_data" not in st.session_state:
     }
 if "manual_jobs" not in st.session_state: st.session_state.manual_jobs = []
 if "live_jobs" not in st.session_state: st.session_state.live_jobs = []
+if "featured_jobs" not in st.session_state: st.session_state.featured_jobs = []
+if "live_feed_errors" not in st.session_state: st.session_state.live_feed_errors = []
+if "live_feed_count" not in st.session_state: st.session_state.live_feed_count = 0
 if "tracker_rows" not in st.session_state: st.session_state.tracker_rows = {}
 if "discussions" not in st.session_state:
     st.session_state.discussions = pd.read_csv(ROOT / "data/sample_discussions.csv").fillna("").to_dict("records")
@@ -168,8 +179,26 @@ def load_model():
     return SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 
 
+@st.cache_data(show_spinner=False)
+def observed_employer_jobs():
+    df = pd.read_csv(ROOT / "data/observed_employer_listings.csv", dtype=str).fillna("")
+    return [normalize_job(row) for row in df.to_dict("records")]
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def cached_featured_jobs():
+    return fetch_featured_jobs()
+
+
 def all_jobs():
-    return deduplicate_jobs(sample_jobs() + st.session_state.manual_jobs + st.session_state.live_jobs)
+    mode = st.session_state.get("catalog_mode", "Employer listings")
+    if mode == "Demonstration data":
+        return deduplicate_jobs(sample_jobs() + st.session_state.manual_jobs)
+    if mode == "Live feeds only":
+        return deduplicate_jobs(st.session_state.featured_jobs + st.session_state.live_jobs + st.session_state.manual_jobs)
+    # Recently observed URLs are distinct from actively refreshed employer feeds.
+    # Put fetched jobs last so current live-feed metadata wins on duplicate URLs.
+    return deduplicate_jobs(observed_employer_jobs() + st.session_state.featured_jobs + st.session_state.live_jobs + st.session_state.manual_jobs)
 
 
 def save_job(job):
@@ -177,7 +206,7 @@ def save_job(job):
 
 
 with st.sidebar:
-    st.markdown("## 🧭 CareerCollective")
+    st.markdown("## CareerCollective")
     st.caption(tr("subtitle"))
     chosen = st.segmented_control("Language / Langue", ["English", "Français"], default="Français" if language == "fr" else "English")
     new_lang = "fr" if chosen == "Français" else "en"
@@ -185,11 +214,22 @@ with st.sidebar:
         st.session_state.language = new_lang
         st.rerun()
     st.divider()
-    pages = [("🔎", "discover"), ("📌", "tracker"), ("💬", "community"), ("👤", "profile"), ("ℹ️", "about")]
-    chosen_page = st.radio("Navigation", [key for _, key in pages], format_func=lambda x: next(icon for icon, name in pages if x == name) + "  " + tr(x), label_visibility="collapsed")
+    pages = ["discover", "tracker", "community", "profile", "about"]
+    chosen_page = st.radio("Navigation", pages, format_func=tr, label_visibility="collapsed")
     st.divider()
-    engine_label = st.selectbox(tr("engine"), ["semantic", "baseline"], format_func=lambda x: tr("engine_ai") if x == "semantic" else tr("engine_fast"), index=0)
+    engine_label = st.selectbox(tr("engine"), ["semantic", "baseline"], format_func=lambda x: tr("engine_ai") if x == "semantic" else tr("engine_fast"), index=1)
     st.caption("Multilingual sentence embeddings · Hugging Face" if engine_label == "semantic" else "Character n-gram TF-IDF · scikit-learn")
+    if chosen_page == "discover":
+        catalog_mode = st.radio(
+            "Job catalogue / Catalogue d'offres",
+            ["Employer listings", "Live feeds only", "Demonstration data"],
+            format_func=lambda x: {
+                "Employer listings": "Employer listings / Offres d'employeurs",
+                "Live feeds only": "Live feeds only / Flux actualisés",
+                "Demonstration data": "Demonstration only / Démonstration",
+            }[x],
+            key="catalog_mode",
+        )
     st.divider()
     st.caption("ESSEC student project · 2026  |  v1.0")
     st.caption("No account · Session-only · Educational demo")
@@ -204,6 +244,13 @@ if chosen_page == "discover" and using_semantic:
         using_semantic = False
         st.warning(tr("model_error") + f" ({type(exc).__name__})")
 
+if chosen_page == "discover" and st.session_state.get("catalog_mode") != "Demonstration data":
+    with st.spinner("Checking public employer job boards / Consultation des offres publiques..."):
+        fresh, failures, checked = cached_featured_jobs()
+    st.session_state.featured_jobs = fresh
+    st.session_state.live_feed_errors = failures
+    st.session_state.live_feed_count = checked
+
 jobs = all_jobs()
 tracked = list(st.session_state.tracker_rows.values())
 near = sum(days_until_deadline(j) is not None and 0 <= days_until_deadline(j) <= 7 for j in tracked)
@@ -214,10 +261,28 @@ if chosen_page == "discover":
     for col, value, label in zip(stats, [len(jobs), len(tracked), near, len(st.session_state.discussions)], [tr("total"), tr("tracked"), tr("soon"), tr("posts")]):
         col.metric(label, value)
     show_demo_warning()
+    if st.session_state.get("catalog_mode") != "Demonstration data":
+        total_live = len(st.session_state.featured_jobs)
+        observed_total = len(observed_employer_jobs())
+        st.caption((f"Checked {st.session_state.live_feed_count}/8 public employer boards. "
+                    f"{total_live} France-based student roles found in current feeds; "
+                    f"{observed_total} previously observed employer links also available for reference. "
+                    "A previously observed link is not a claim that the job is still open.") if language == "en" else
+                   (f"{st.session_state.live_feed_count}/8 sites employeurs consultés. "
+                    f"{total_live} offres étudiant en France trouvées dans les flux ; "
+                    f"{observed_total} liens repérés précédemment à vérifier."))
+        if st.session_state.live_feed_errors:
+            with st.expander("Sources unavailable / Sources indisponibles"):
+                st.write("; ".join(st.session_state.live_feed_errors))
+        if st.button("Refresh live listings / Actualiser les offres"):
+            cached_featured_jobs.clear()
+            st.rerun()
     st.write("")
     st.subheader(tr("matches"))
     st.caption(tr("find_desc"))
-    query = st.text_input(tr("query"), placeholder="e.g. marketing, data, événementiel")
+    search_col, city_col = st.columns([2, 1])
+    query = search_col.text_input(tr("query"), placeholder="e.g. marketing, data, événementiel")
+    city_query = city_col.text_input("City / Ville", placeholder="Paris, Lyon, ...")
     fc1, fc2, fc3 = st.columns(3)
     sector_options = ["All"] + sorted(set(j["sector"] for j in jobs if j["sector"]))
     sectors = fc1.selectbox(tr("sector"), sector_options, format_func=lambda x: tr("all") if x == "All" else x)
@@ -225,12 +290,12 @@ if chosen_page == "discover":
     sources = fc3.selectbox(tr("source"), ["All"] + sorted(set(j["source_type"] for j in jobs)), format_func=lambda x: tr("all") if x == "All" else x)
     france_filter = st.checkbox(tr("france"), value=True)
     st.write("")
-    with st.expander("🌍 " + tr("live_header"), expanded=False):
+    with st.expander(tr("live_header") + " — additional employer board", expanded=False):
         st.caption(tr("live_help"))
         provider = st.selectbox("Source API", ["Greenhouse", "Lever (global)", "Lever (EU)"])
         slug = st.text_input("Employer board identifier / Identifiant", placeholder="e.g. greenhouse board token or Lever site")
         only_student_roles = st.checkbox("Only student-oriented roles / Stages et alternances uniquement", value=True)
-        if st.button("↻ " + tr("load"), disabled=not slug.strip()):
+        if st.button(tr("load"), disabled=not slug.strip()):
             try:
                 with st.spinner("Fetching published postings…"):
                     if provider == "Greenhouse": new = fetch_greenhouse(slug.strip())
@@ -245,7 +310,7 @@ if chosen_page == "discover":
                 st.rerun()
             except Exception as exc:
                 st.error(f"{tr('live_error')}: {exc}")
-    with st.expander("✍️ " + tr("manual"), expanded=False):
+    with st.expander(tr("manual"), expanded=False):
         with st.form("manual_role"):
             a,b = st.columns(2)
             company = a.text_input(tr("company"))
@@ -273,9 +338,11 @@ if chosen_page == "discover":
                 st.rerun()
 
     listing = filter_jobs(jobs, query, sectors, contracts, sources, france_filter)
+    if city_query.strip():
+        listing = [j for j in listing if city_query.casefold().strip() in j.get("city", "").casefold()]
     ranked, actual_engine = rank_jobs(listing, st.session_state.profile_data, using_semantic, model)
     st.caption(f"{tr('current_engine')}: {'Multilingual pretrained transformer / Transformeur multilingue' if actual_engine == 'multilingual-transformer' else 'TF-IDF baseline / Référence TF-IDF'} · {len(ranked)} results")
-    st.info(tr("match_notice"), icon="ℹ️")
+    st.info(tr("match_notice"))
     if not ranked:
         st.warning(tr("filter_none"))
     result_limit = st.select_slider("Visible recommendations / Recommandations affichées", options=[5, 8, 12, 20, 30], value=8)
@@ -283,15 +350,16 @@ if chosen_page == "discover":
         with st.container(border=True):
             c1,c2 = st.columns([4,1.2])
             with c1:
-                st.markdown(f"### {html.escape(job['title'])}")
-                st.markdown(f"**{html.escape(job['company'])}**  ·  📍 {html.escape(job['city'] or 'Location not specified')}")
+                st.markdown(f"### {html.escape(professional_text(job['title']))}")
+                st.markdown(f"**{html.escape(professional_text(job['company']))}**  ·  {html.escape(professional_text(job['city'] or 'Location not specified'))}")
                 st.caption(f"{job['contract']}  ·  {job['sector']}  ·  {job['source']}")
             with c2:
                 st.metric(tr("rank"), f"{job['score']} / 100")
-                if job["source_type"] == "Demo data": st.caption("🧪 FICTIONAL / FICTIF")
-                elif job["source_type"] == "Live feed": st.caption("🟢 Public feed / Flux public")
-                else: st.caption("✍️ Manual / Manuel")
-            st.write((job["description"][:330] + "…") if len(job["description"])>330 else job["description"])
+                if job["source_type"] == "Demo data": st.caption("FICTIONAL / FICTIF")
+                elif job["source_type"] == "Live feed": st.caption("PUBLIC EMPLOYER FEED / FLUX PUBLIC")
+                elif job["source_type"] == "Employer link — verify": st.caption("PREVIOUSLY OBSERVED — VERIFY / LIEN À VÉRIFIER")
+                else: st.caption("MANUAL / MANUEL")
+            st.write(professional_text((job["description"][:330] + "…") if len(job["description"])>330 else job["description"]))
             if job["deadline"]:
                 remaining = days_until_deadline(job)
                 deadline_text = job["deadline"]
@@ -299,7 +367,7 @@ if chosen_page == "discover":
                 elif remaining is not None and remaining <= 7: deadline_text += f" · {remaining} days / jours"
             else:
                 deadline_text = tr("not_given")
-            st.caption(f"📆 {tr('deadline')}: {deadline_text}")
+            st.caption(f"{tr('deadline')}: {deadline_text}")
             with st.expander(tr("reason")):
                 st.write(f"**{tr('overlap')}:** " + (", ".join(job["shared_skills"]) if job["shared_skills"] else tr("none")))
                 st.write(f"**{tr('gaps')}:** " + (", ".join(job["missing_skills"]) if job["missing_skills"] else "—"))
@@ -307,12 +375,12 @@ if chosen_page == "discover":
             b1,b2,b3 = st.columns([1.6,1.6,3])
             with b1:
                 if job["id"] in st.session_state.tracker_rows:
-                    st.button("✓ " + tr("saved"), key="already-"+job["id"], disabled=True)
-                elif st.button("＋ " + tr("save"), key="save-"+job["id"], type="primary"):
+                    st.button(tr("saved"), key="already-"+job["id"], disabled=True)
+                elif st.button(tr("save"), key="save-"+job["id"], type="primary"):
                     save_job(job); st.rerun()
             with b2:
                 if job["url"]:
-                    st.link_button("↗ " + tr("apply"), job["url"])
+                    st.link_button(tr("apply"), job["url"])
 
 elif chosen_page == "tracker":
     render_headline("Your application workspace" if language == "en" else "Votre espace candidatures", tr("tracker_header"), tr("tracker_desc"))
@@ -341,7 +409,7 @@ elif chosen_page == "tracker":
         dl2.download_button(tr("export_csv"), pd.DataFrame(tracked, columns=TRACKER_COLUMNS).to_csv(index=False).encode("utf-8-sig"), "CareerCollective_applications.csv", mime="text/csv")
         if tracked:
             remove_id = dl3.selectbox(tr("delete"), ["—"] + [r["job_id"] for r in tracked], format_func=lambda v: v if v == "—" else next((f"{r['company']} | {r['title']}" for r in tracked if r['job_id'] == v), v))
-            if remove_id != "—" and dl3.button("✕ " + tr("delete"), key="remove_saved"):
+            if remove_id != "—" and dl3.button(" " + tr("delete"), key="remove_saved"):
                 st.session_state.tracker_rows.pop(remove_id, None); st.rerun()
         st.subheader(tr("upcoming"))
         future = [(days_until_deadline(row),row) for row in tracked]
@@ -350,7 +418,7 @@ elif chosen_page == "tracker":
             for days,job in future[:8]:
                 st.markdown(f"**{html.escape(job['company'])} · {html.escape(job['title'])}** — {job['deadline']} · {days} days / jours")
         else: st.caption(tr("unlisted"))
-        with st.expander("🔎 " + tr("monitor")):
+        with st.expander(tr("monitor")):
             st.caption(tr("monitor_description"))
             for r in tracked:
                 if "Greenhouse ·" in r["source"] or "Lever ·" in r["source"]:
@@ -408,8 +476,8 @@ elif chosen_page == "tracker":
 elif chosen_page == "community":
     render_headline("CareerCollective Community", tr("community_header"), tr("community_desc"))
     st.markdown("<span class='tiny-pill'>Ask / Questions</span><span class='tiny-pill'>Interviews / Entretiens</span><span class='tiny-pill'>Find your peers / Réseau</span>", unsafe_allow_html=True)
-    st.info(tr("community_note"), icon="ℹ️")
-    with st.expander("＋ " + tr("new_post")):
+    st.info(tr("community_note"))
+    with st.expander(tr("new_post")):
         with st.form("post_form", clear_on_submit=True):
             name = st.text_input(tr("alias"), placeholder="Student_2026")
             category = st.selectbox(tr("category"), ["Ask the community", "Interview experiences", "Find your peers"])
@@ -438,7 +506,7 @@ elif chosen_page == "community":
             st.caption(f"{p['author']}  ·  {int(p['replies']) + len(p['user_replies'])} replies / réponses")
             for reply in p["user_replies"]:
                 st.markdown(f"**{html.escape(reply['author'])}:** {html.escape(reply['text'])}")
-            with st.expander("💬 " + tr("comment")):
+            with st.expander(tr("comment")):
                 with st.form("reply_"+str(p["id"]), clear_on_submit=True):
                     author = st.text_input(tr("alias"), key="author_"+str(p["id"]))
                     message = st.text_area("Message", max_chars=700, key="message_"+str(p["id"]))
@@ -447,7 +515,7 @@ elif chosen_page == "community":
                     p["user_replies"].append({"author": clean_text(author, 45), "text": clean_text(message, 700)})
                     st.rerun()
                 elif sent: st.error("Please enter a name and a reply.")
-    with st.expander("🔗 " + tr("group_link")):
+    with st.expander(tr("group_link")):
         st.caption(tr("group_link_help"))
         group_url = st.text_input("Verified invitation URL / Lien d'invitation vérifié", value=st.session_state.community_link)
         if st.button("Save link / Enregistrer le lien"):
@@ -494,7 +562,9 @@ elif chosen_page == "about":
     st.write("Scores measure relative textual fit, not interview likelihood or objective suitability. Review every recommendation critically.")
     st.subheader("Job data / Données des offres")
     st.write(tr("data_note"))
-    st.markdown("- [Greenhouse public Job Board API](https://developers.greenhouse.io/job-board.html) — unauthenticated public GETs for a specific employer board.\n- [Lever public Postings API](https://github.com/lever/postings-api) — public posts for a specific employer site.\n- Local demonstration CSV — fictional examples, never represented as live jobs.")
+    st.markdown("**Current employer feeds:** Vestiaire Collective, Bigblue, Cheerz, Scaleway, Ekimetrics, C12 Quantum Electronics, Aircall and Mirakl. These employer job boards are fetched using public Greenhouse / Lever APIs. **Previously observed employer links** are provided as a separate, clearly labeled offline reference, not as confirmation of a current vacancy.")
+    st.write("Selected company feeds are checked on demand or cached for 30 minutes. Public listings are not guaranteed to remain open; advertised deadlines are shown only when explicitly published.")
+    st.markdown("- [Greenhouse public Job Board API](https://developers.greenhouse.io/job-board.html) — unauthenticated public GETs for a specific employer board.\n- [Lever public Postings API](https://github.com/lever/postings-api) — public posts for a specific employer site.\n- Previously observed employer listings CSV — real employer links observed in October 2026; availability must be verified.\n- Local demonstration CSV — fictional examples, never represented as live jobs.")
     st.download_button(tr("download_data"), (ROOT / "data/sample_jobs.csv").read_bytes(), "CareerCollective_demo_jobs.csv", "text/csv")
     st.subheader("Privacy & limitations / Confidentialité et limites")
     st.write("No logins, no server-side database, no persistent shared community, no notifications, no automatic external applications, and no universal web scraping. Streamlit session state is transient; on a hosted server, uploaded CV text is processed in server memory. Use fictional profiles for a public demo.")
