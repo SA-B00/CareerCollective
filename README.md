@@ -126,3 +126,10 @@ python evaluate_matching.py
 Smreti AMIN, Paul de FELICE, Anabel GAMBIHLER GUERREIRO, François LAURE, Inès NOAGBEWONOU.
 
 This proof-of-concept was created for an academic AI application assignment. Students must review and approve the deliverable and disclose the assistance used.
+## Calendar, status indicators and exports
+
+The **Calendar / Calendrier** page is connected to the session application tracker. Any edited deadline, submission date or status is reflected in its month view. Click a date to inspect the related opportunity. The dashboard chips are also clickable: **red** for deadlines in the next seven days or overdue; **green** for applications in progress (Applied or Interview); **blue** for Saved opportunities to apply to. Calendar day cells use the same colors and can be selected to display individual events.
+
+For personal calendars, click a tracked deadline and choose **Add to Google Calendar** to prefill a new all-day event. Use **Download calendar event (.ics)** for a single deadline or **Export all tracked dates (.ics)** for all recorded deadlines and application dates, compatible with Google Calendar, Outlook and Apple Calendar. Exporting an ICS file or opening a Google Calendar event composer is **not automatic syncing**: if you change a deadline later, repeat the export or update the event yourself. No personal calendar account is accessed or modified directly by CareerCollective.
+
+The fictional student applications and calendar events are marked as DEMO. Dates not published by employers cannot be inferred, and the calendar does not imply real applications were submitted.

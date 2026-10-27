@@ -24,6 +24,7 @@ from core import (
 )
 from sources import fetch_greenhouse, fetch_lever, fetch_featured_jobs, monitored_status
 from demo_data import load_demo_profile, load_demo_tracker, load_demo_discussions, empty_profile
+from calendar_ui import render_status_strip, render_calendar
 
 
 ROOT = Path(__file__).parent
@@ -68,7 +69,7 @@ st.markdown(CSS, unsafe_allow_html=True)
 
 TEXT = {
     "en": {
-        "discover": "Discover", "tracker": "My applications", "community": "Community", "profile": "My profile", "about": "About & sources",
+        "discover": "Discover", "tracker": "My applications", "calendar": "Calendar", "community": "Community", "profile": "My profile", "about": "About & sources",
         "subtitle": "AI-guided internships, apprenticeships and a community to move forward together.",
         "welcome": "Your next opportunity starts here.", "mission": "Discover relevant internships and apprenticeships, organize every application, and learn from other students  -  all in one place.",
         "demo": "Demonstration mode", "info": "This app starts with a fictional student profile and simulated applications, interviews and discussions. No applications were actually submitted. Employer vacancies are separate and must be checked at source. Session changes are not saved unless exported.",
@@ -95,7 +96,7 @@ TEXT = {
         "filter_none": "No results match the current filters. Try broader terms, or add a job manually.",
     },
     "fr": {
-        "discover": "Découvrir", "tracker": "Mes candidatures", "community": "Communauté", "profile": "Mon profil", "about": "À propos & sources",
+        "discover": "Découvrir", "tracker": "Mes candidatures", "calendar": "Calendrier", "community": "Communauté", "profile": "Mon profil", "about": "À propos & sources",
         "subtitle": "Stages, alternances et entraide étudiante, guidés par l'IA.",
         "welcome": "Votre prochaine opportunité commence ici.", "mission": "Trouvez des stages et alternances adaptés, suivez vos candidatures et échangez avec d'autres étudiants  -  au même endroit.",
         "demo": "Mode démonstration", "info": "Profil initial fictif avec candidatures envoyées simulées, entretiens et discussions fictives. Aucune candidature réelle n'a été envoyée. Les offres employeurs sont distinctes et à vérifier. Exportez vos données pour les conserver.",
@@ -125,6 +126,14 @@ TEXT = {
 
 if "language" not in st.session_state:
     st.session_state.language = "en"
+if "nav_page" not in st.session_state:
+    st.session_state.nav_page = "discover"
+if "cc_calendar_filter" not in st.session_state:
+    st.session_state.cc_calendar_filter = "all"
+if "cc_calendar_month" not in st.session_state:
+    st.session_state.cc_calendar_month = date.today().replace(day=1).isoformat()
+if "cc_calendar_date" not in st.session_state:
+    st.session_state.cc_calendar_date = date.today().isoformat()
 if "demo_workspace" not in st.session_state:
     st.session_state.demo_workspace = True
 if "profile_data" not in st.session_state:
@@ -202,8 +211,8 @@ with st.sidebar:
         st.session_state.language = new_lang
         st.rerun()
     st.divider()
-    pages = ["discover", "tracker", "community", "profile", "about"]
-    chosen_page = st.radio("Navigation", pages, format_func=tr, label_visibility="collapsed")
+    pages = ["discover", "tracker", "calendar", "community", "profile", "about"]
+    chosen_page = st.radio("Navigation", pages, format_func=tr, label_visibility="collapsed", key="nav_page")
     st.divider()
     engine_label = st.selectbox(tr("engine"), ["semantic", "baseline"], format_func=lambda x: tr("engine_ai") if x == "semantic" else tr("engine_fast"), index=1)
     st.caption("Multilingual sentence embeddings · Hugging Face" if engine_label == "semantic" else "Character n-gram TF-IDF · scikit-learn")
@@ -261,6 +270,7 @@ near = sum(days_until_deadline(j) is not None and 0 <= days_until_deadline(j) <=
 
 if chosen_page == "discover":
     render_headline("Career discovery, reimagined" if language == "en" else "Découvrez votre avenir", tr("welcome"), tr("mission"))
+    render_status_strip(tracked, language)
     stats = st.columns(4)
     for col, value, label in zip(stats, [len(jobs), len(tracked), near, len(st.session_state.discussions)], [tr("total"), tr("tracked"), tr("soon"), tr("posts")]):
         col.metric(label, value)
@@ -386,9 +396,18 @@ if chosen_page == "discover":
                 if job["url"]:
                     st.link_button(tr("apply"), job["url"])
 
+elif chosen_page == "calendar":
+    render_headline("Track what comes next" if language == "en" else "Anticipez vos échéances",
+                    "Application calendar" if language == "en" else "Calendrier des candidatures",
+                    "Click a date to review deadlines and application activity. Your tracker updates the calendar immediately." if language == "en" else "Cliquez sur une date pour afficher les échéances et les candidatures. Le calendrier suit les changements du tableau.")
+    show_demo_warning()
+    render_status_strip(tracked, language)
+    render_calendar(tracked, language)
+
 elif chosen_page == "tracker":
     render_headline("Your application workspace" if language == "en" else "Votre espace candidatures", tr("tracker_header"), tr("tracker_desc"))
     show_demo_warning()
+    render_status_strip(tracked, language)
     if tracked:
         summary = st.columns(4)
         counts = {status: sum(item["status"] == status for item in tracked) for status in STATUSES}
